@@ -1,0 +1,18 @@
+/assets/*
+  Access-Control-Allow-Origin: *
+
+/_expo/*
+  Access-Control-Allow-Origin: *
+
+/*.ttf
+  Access-Control-Allow-Origin: *
+  Content-Type: font/ttf
+
+/*.woff
+  Access-Control-Allow-Origin: *
+  Content-Type: font/woff
+
+/*.woff2
+  Access-Control-Allow-Origin: *
+  Content-Type: font/woff2
+
