@@ -10,7 +10,12 @@ export default function RootHtml({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#1E1B4B" />
         <ScrollViewStyleReset />
+        <link rel="manifest" href="/site.webmanifest" />
+        <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/icons/favicon.svg" />
+        <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#4C1D95" />
         <script async src="https://identity.netlify.com/v1/netlify-identity-widget.js" />
         <script async src={`https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`} />
         <script
