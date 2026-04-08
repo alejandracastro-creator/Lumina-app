@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    textShadowRadius: 4,
   },
   card: {
     width: '100%',

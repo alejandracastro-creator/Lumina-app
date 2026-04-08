@@ -118,7 +118,9 @@ export default function HomeScreen() {
           <Animated.View style={[styles.sparkleContainer, { opacity: sparkleAnim }]}>
             <Ionicons name="sparkles" size={24} color="#FDE68A" />
           </Animated.View>
-          <Text style={styles.oracleButtonText}>Oráculo del día</Text>
+          <Text style={styles.oracleButtonText} numberOfLines={1} ellipsizeMode="clip">
+            Oráculo del día
+          </Text>
           <Animated.View style={[styles.sparkleContainer, { opacity: sparkleAnim }]}>
             <Ionicons name="sparkles" size={24} color="#FDE68A" />
           </Animated.View>
@@ -197,6 +199,8 @@ const styles = StyleSheet.create({
   oracleButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
     backgroundColor: '#1E1B4B',
     paddingVertical: 22,
     paddingHorizontal: 35,
@@ -215,9 +219,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginHorizontal: 15,
     letterSpacing: 1.5,
+    textAlign: 'center',
+    flexShrink: 0,
   },
   sparkleContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    width: 24,
+    height: 24,
   },
 });
