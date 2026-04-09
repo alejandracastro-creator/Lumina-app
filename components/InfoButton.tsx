@@ -7,20 +7,40 @@ type InfoButtonProps = {
   text: string;
   top?: number;
   right?: number;
+  variant?: 'icon' | 'pill';
+  label?: string;
+  size?: 'sm' | 'md';
 };
 
-export default function InfoButton({ title, text, top = 60, right = 20 }: InfoButtonProps) {
+export default function InfoButton({
+  title,
+  text,
+  top = 60,
+  right = 20,
+  variant = 'icon',
+  label,
+  size = 'md',
+}: InfoButtonProps) {
   const [open, setOpen] = useState(false);
+  const isSmall = variant === 'icon' && size === 'sm';
 
   return (
     <>
       <TouchableOpacity
-        style={[styles.iconButton, { top, right }]}
+        style={[
+          variant === 'pill' ? styles.pillButton : styles.iconButton,
+          isSmall && styles.iconButtonSmall,
+          { top, right },
+        ]}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel="Info"
       >
-        <Ionicons name="information-circle" size={26} color="#C4B5FD" />
+        {variant === 'pill' ? (
+          <Text style={styles.pillText}>{label || 'Info'}</Text>
+        ) : (
+          <Ionicons name="information-circle" size={isSmall ? 22 : 26} color="#FFFFFF" />
+        )}
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -49,9 +69,31 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(26, 16, 61, 0.45)',
+    backgroundColor: 'rgba(219, 39, 119, 0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.25)',
+    borderColor: 'rgba(251, 207, 232, 0.65)',
+  },
+  iconButtonSmall: {
+    width: 32,
+    height: 32,
+  },
+  pillButton: {
+    position: 'absolute',
+    zIndex: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(219, 39, 119, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 207, 232, 0.65)',
+  },
+  pillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   overlay: {
     flex: 1,
@@ -96,4 +138,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-

@@ -241,8 +241,9 @@ export default function OracleScreen() {
     <LuminaBackground style={styles.container}>
       <InfoButton
         title="Oráculo"
-        text="El Oráculo es una carta por día. Podés darla vuelta cuando quieras y siempre será la misma carta hasta mañana. Usala como una guía suave para acompañar tu día."
-        top={56}
+        text="El oráculo es un mensaje para vos en este momento. Cada día podés recibir una única carta, con una guía, una reflexión o una señal para acompañarte en tu día. Podes darla vuelta todas las veces que quieras y siempre será la misma. Mañana habrá una nueva. Cada día, un nuevo mensaje para acompañarte."
+        size="sm"
+        top={18}
         right={16}
       />
       <ScrollView contentContainerStyle={styles.cardWrapper} showsVerticalScrollIndicator={false}>
