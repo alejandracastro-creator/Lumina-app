@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
+    textShadowRadius: 2,
   },
   phaseLabel: {
     marginTop: 6,

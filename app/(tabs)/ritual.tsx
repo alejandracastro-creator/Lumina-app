@@ -283,7 +283,7 @@ export default function RitualScreen() {
     <LuminaBackground style={styles.container}>
       <InfoButton
         title="Ritual"
-        text="El Ritual se completa en dos momentos: mañana y noche. Podés avanzar a tu ritmo y volver a tus respuestas cuando quieras. Es un espacio para acompañarte, no para exigirte."
+        text="El ritual es un proceso de 30 días para conectar con vos. A través de preguntas y respiraciones conscientes, te invita a observar tus emociones, tus pensamientos y tu presente. Tiene dos momentos: uno por la mañana y otro por la noche. Un pequeño espacio diario para vos."
         top={56}
         right={16}
       />
@@ -551,7 +551,7 @@ export default function RitualScreen() {
               <Text style={styles.nextButtonText}>
                 {currentStepIndex === steps.length - 1
                   ? currentSession === 'morning'
-                    ? 'FINALIZAR MAÑANA'
+                    ? 'FINALIZAR CON LA MAÑANA'
                     : 'FINALIZADO NOCHE'
                   : 'CONTINUAR'}
               </Text>

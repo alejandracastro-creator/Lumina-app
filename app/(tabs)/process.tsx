@@ -151,8 +151,13 @@ function isIsoDate(value: unknown): value is string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+function isoToUtcDayNumber(iso: string): number {
+  const [y, m, d] = iso.split('-').map((v) => Number(v));
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
 function diffDays(aIso: string, bIso: string): number {
-  return Math.round((Date.parse(aIso) - Date.parse(bIso)) / 86400000);
+  return isoToUtcDayNumber(aIso) - isoToUtcDayNumber(bIso);
 }
 
 export default function ProcessScreen() {
@@ -430,7 +435,7 @@ export default function ProcessScreen() {
     <LuminaBackground style={styles.container}>
       <InfoButton
         title="Tu Proceso"
-        text="Este espacio no es una evaluación. Es una forma amable de mirarte: sueño, estado de ánimo, SOS, ritual y oráculo. Usalo como un espejo suave para conocerte mejor."
+        text="Acá podés ver tu camino. Tus horas de sueño, tus estados de ánimo, las veces que necesitaste el SOS, y tus rachas en el oráculo y el ritual. Es un reflejo de cómo te estás acompañando día a día."
         top={56}
         right={16}
       />

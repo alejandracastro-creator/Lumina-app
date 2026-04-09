@@ -88,20 +88,28 @@ export default function HomeScreen() {
   return (
     <LuminaBackground style={styles.container}>
       <InfoButton
-        title="Home"
-        text="Acá podés ver tu racha (racha = días seguidos) del Oráculo (🔥) y tu avance del Ritual. Es una guía suave para acompañarte a sostener hábitos, sin exigencia."
+        variant="pill"
+        label="¿Que es Lumina?"
+        title="Bienvenido a LUMINA"
+        text={`Este es tu espacio para pausar, conectar con vos y volver a tu centro.\n\nAcá vas a encontrar tu carta del día, tu ritual y herramientas para acompañarte.\n\nTambién podés ver tus rachas: (los días seguidos que elegís estar con vos, ya sea a través del oráculo o del ritual). Cada día cuenta.`}
         top={56}
         right={16}
       />
       {/* Indicadores de Racha y Progreso */}
       <View style={styles.statsHeader}>
         <View style={styles.statBadge}>
-          <Ionicons name="flame" size={20} color="#F59E0B" />
-          <Text style={styles.statText}>{streak}</Text>
+          <View style={styles.statTopRow}>
+            <Ionicons name="flame" size={20} color="#F59E0B" />
+            <Text style={styles.statText}>{streak}</Text>
+          </View>
+          <Text style={styles.statLabel}>RACHA{"\n"}ORACULO</Text>
         </View>
         <View style={[styles.statBadge, ritualBehind ? styles.statBadgeBad : styles.statBadgeGood]}>
-          <Ionicons name="journal" size={20} color={ritualBehind ? '#EF4444' : '#10B981'} />
-          <Text style={[styles.statText, ritualBehind ? styles.statTextBad : styles.statTextGood]}>{ritualProgress}/30</Text>
+          <View style={styles.statTopRow}>
+            <Ionicons name="journal" size={20} color={ritualBehind ? '#EF4444' : '#10B981'} />
+            <Text style={[styles.statText, ritualBehind ? styles.statTextBad : styles.statTextGood]}>{ritualProgress}/30</Text>
+          </View>
+          <Text style={styles.statLabel}>RACHA{"\n"}RITUAL</Text>
         </View>
       </View>
 
@@ -139,21 +147,24 @@ const styles = StyleSheet.create({
   },
   statsHeader: {
     position: 'absolute',
-    top: 60,
+    top: 56,
     left: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
   statBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(30, 27, 75, 0.6)',
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 20,
     marginRight: 10,
     borderWidth: 1,
     borderColor: 'rgba(167, 139, 250, 0.3)',
+  },
+  statTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statBadgeGood: {
     borderColor: 'rgba(16, 185, 129, 0.6)',
@@ -166,6 +177,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 6,
+  },
+  statLabel: {
+    marginTop: 4,
+    color: 'rgba(233, 213, 255, 0.7)',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    lineHeight: 12,
   },
   statTextGood: {
     color: '#D1FAE5',

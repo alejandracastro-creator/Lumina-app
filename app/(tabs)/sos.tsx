@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import BreathingGuide from '../../components/BreathingGuide';
 import CounterGuide from '../../components/CounterGuide';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import InfoButton from '../../components/InfoButton';
 
 const SOS_USAGE_KEY = 'lumina_sos_usage_v1';
 const BURN_DELAY_MS = 3000;
@@ -107,7 +106,10 @@ export default function SOSScreen() {
   const renderCategoryList = () => (
     <View style={styles.categoryContainer}>
       <Text style={styles.headerTitle}>S.O.S.</Text>
-      <Text style={styles.headerSubtitle}>Elige lo que estás sintiendo ahora</Text>
+      <Text style={styles.headerSubtitle}>
+        Este es tu espacio de ayuda inmediata.{"\n"}
+        Si estás atravesando una emoción intensa, podés venir acá para regularte y volver a vos. Son ejercicios simples y breves para acompañarte en momentos difíciles.
+      </Text>
       <View style={styles.grid}>
         {SOS_DATA.map((category) => (
           <TouchableOpacity 
@@ -510,14 +512,6 @@ export default function SOSScreen() {
   return (
     <LuminaBackground style={styles.container}>
       <View style={styles.safeArea}>
-        {!selectedCategory && (
-          <InfoButton
-            title="S.O.S."
-            text="SOS es un espacio para cuando algo se siente demasiado. Elegí lo que estás sintiendo y avanzá a tu ritmo. No se trata de hacerlo perfecto: se trata de acompañarte."
-            top={18}
-            right={16}
-          />
-        )}
         {!selectedCategory ? renderCategoryList() : 
          isFinished ? renderFinalMessage() : renderStep()}
       </View>
@@ -539,18 +533,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#7F1D1D',
+    fontSize: 46,
+    fontWeight: '900',
+    color: '#DC2626',
     letterSpacing: 4,
     marginBottom: 10,
-    fontFamily: 'PlayfairDisplay_700Bold',
+    fontFamily: Platform.select({
+      web: 'ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, Arial',
+      ios: 'Avenir Next',
+      android: 'sans-serif-medium',
+      default: 'System',
+    }),
   },
   headerSubtitle: {
     fontSize: 18,
     color: '#C4B5FD',
     marginBottom: 40,
     textAlign: 'center',
+    lineHeight: 26,
   },
   grid: {
     flexDirection: 'row',
