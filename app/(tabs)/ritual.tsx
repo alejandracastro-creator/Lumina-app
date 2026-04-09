@@ -51,6 +51,18 @@ function ensureDayEntry(existing?: DayEntry): DayEntry {
   );
 }
 
+function getLocalIsoDate(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isoToUtcDayNumber(iso: string): number {
+  const [y, m, d] = iso.split('-').map((v) => Number(v));
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
 export default function RitualScreen() {
   const [progress, setProgress] = useState<RitualProgress[]>([]);
   const [entries, setEntries] = useState<Record<number, DayEntry>>({});
@@ -96,7 +108,7 @@ export default function RitualScreen() {
 
       if (!REVIEW_MODE) {
         const savedStartDate = await AsyncStorage.getItem(START_DATE_KEY);
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getLocalIsoDate();
         const nextStartDate = savedStartDate || todayStr;
         setStartDate(nextStartDate);
         if (!savedStartDate) {
@@ -129,9 +141,8 @@ export default function RitualScreen() {
 
   const currentDayNumber = useMemo(() => {
     if (REVIEW_MODE || !startDate) return null;
-    const todayStr = new Date().toISOString().split('T')[0];
-    const diffMs = Date.parse(todayStr) - Date.parse(startDate);
-    const diffDays = Math.floor(diffMs / 86400000);
+    const todayStr = getLocalIsoDate();
+    const diffDays = isoToUtcDayNumber(todayStr) - isoToUtcDayNumber(startDate);
     const n = diffDays + 1;
     if (n < 1) return 1;
     if (n > 30) return 30;
@@ -249,7 +260,7 @@ export default function RitualScreen() {
 
     const nextProgress = [...progress];
     const dayIdx = nextProgress.findIndex(p => p.day === selectedDayNumber);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalIsoDate();
 
     if (dayIdx >= 0) {
       if (currentSession === 'morning') {

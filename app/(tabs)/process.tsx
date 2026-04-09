@@ -151,6 +151,13 @@ function isIsoDate(value: unknown): value is string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+function getLocalIsoDate(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function isoToUtcDayNumber(iso: string): number {
   const [y, m, d] = iso.split('-').map((v) => Number(v));
   return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
@@ -332,6 +339,27 @@ export default function ProcessScreen() {
       setSosDaysCount(daysWithUse);
 
       const progress: RitualProgress[] = savedRitualProgress ? JSON.parse(savedRitualProgress) : [];
+      const completedDays = progress
+        .filter((p) => p?.morningCompleted && p?.nightCompleted)
+        .map((p) => p.day)
+        .filter((d) => Number.isFinite(d))
+        .sort((a, b) => a - b);
+
+      let best = 0;
+      let run = 0;
+      for (let i = 0; i < completedDays.length; i++) {
+        if (i === 0) run = 1;
+        else run = completedDays[i] === completedDays[i - 1] + 1 ? run + 1 : 1;
+        if (run > best) best = run;
+      }
+
+      const todayIso = getLocalIsoDate();
+      const appStartIso = isIsoDate(savedAppStartDate) ? savedAppStartDate : todayIso;
+      if (!savedAppStartDate) await AsyncStorage.setItem(APP_START_DATE_KEY, appStartIso);
+
+      const windowDays = Math.max(1, diffDays(todayIso, appStartIso) + 1);
+      const windowStartIso = appStartIso;
+
       const completionDates = Array.from(
         new Set(
           progress
@@ -340,30 +368,9 @@ export default function ProcessScreen() {
         )
       ).sort();
 
-      let best = 0;
-      let run = 0;
-      for (let i = 0; i < completionDates.length; i++) {
-        if (i === 0) {
-          run = 1;
-        } else {
-          const delta = diffDays(completionDates[i], completionDates[i - 1]);
-          run = delta === 1 ? run + 1 : 1;
-        }
-        if (run > best) best = run;
-      }
-
-      const todayIso = new Date().toISOString().split('T')[0];
-      const appStartIso = isIsoDate(savedAppStartDate) ? savedAppStartDate : todayIso;
-      if (!savedAppStartDate) await AsyncStorage.setItem(APP_START_DATE_KEY, appStartIso);
-
-      const windowDays = Math.max(1, diffDays(todayIso, appStartIso) + 1);
-      const windowStartIso = appStartIso;
-
       const doneInWindow = completionDates.filter((d) => d >= windowStartIso && d <= todayIso).length;
       const without = Math.max(0, windowDays - doneInWindow);
-      const completedTotal = Array.isArray(progress)
-        ? progress.filter((p) => p?.morningCompleted && p?.nightCompleted).length
-        : 0;
+      const completedTotal = completedDays.length;
       const remaining = Math.max(0, 30 - completedTotal);
 
       setRitualBestStreak(best);
