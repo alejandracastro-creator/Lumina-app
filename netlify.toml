@@ -6,11 +6,6 @@
   NODE_VERSION = "20"
 
 [[redirects]]
-  from = "/.netlify/*"
-  to = "/.netlify/:splat"
-  status = 200
-
-[[redirects]]
   from = "/assets/*"
   to = "/assets/:splat"
   status = 200

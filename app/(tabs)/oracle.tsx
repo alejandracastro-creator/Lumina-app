@@ -289,42 +289,18 @@ export default function OracleScreen() {
     }
 
     const nav: any = typeof window !== 'undefined' ? window.navigator : null;
-    if (!nav?.share) {
+    if (nav?.share) {
       try {
-        await nav?.clipboard?.writeText?.(shareText);
-        Alert.alert('Compartir', 'Copiado al portapapeles.');
-      } catch {
-        Alert.alert('Compartir', shareText);
-      }
-      return;
+        await nav.share({ title: 'LUMINA — Oráculo', text: `${card.title}\n\n${card.message}`, url: shareUrl });
+        return;
+      } catch {}
     }
-
-    let files: File[] | undefined;
     try {
-      const el = shareWrapRef.current as HTMLElement | null;
-      if (el) {
-        const mod: any = await import('html2canvas');
-        const html2canvas = mod?.default ?? mod;
-        const canvas: HTMLCanvasElement = await html2canvas(el, { backgroundColor: '#0B0720', scale: 2, useCORS: true });
-        const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-        if (blob) {
-          const file = new File([blob], 'lumina-oraculo.png', { type: 'image/png' });
-          if (typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-            files = [file];
-          }
-        }
-      }
-    } catch {}
-
-    try {
-      const data: any = {
-        title: 'LUMINA — Oráculo',
-        text: `${card.title}\n\n${card.message}`,
-        url: shareUrl,
-      };
-      if (files?.length) data.files = files;
-      await nav.share(data);
-    } catch {}
+      await nav?.clipboard?.writeText?.(shareText);
+      Alert.alert('Compartir', 'Copiado al portapapeles.');
+    } catch {
+      Alert.alert('Compartir', shareText);
+    }
   }, [card]);
 
   return (
@@ -384,36 +360,10 @@ export default function OracleScreen() {
         {isFlipped && card && (
           <View style={styles.actionsRow}>
             <TouchableOpacity style={styles.actionButton} onPress={handleToggleLike} accessibilityRole="button" accessibilityLabel="Me gusta">
-              {Platform.OS === 'web' ? (
-                <Image
-                  source={{
-                    uri: isLiked
-                      ? usePngIcons
-                        ? '/icons/boton-like-red.png'
-                        : '/icons/boton-like-red.svg'
-                      : usePngIcons
-                        ? '/icons/boton-like.png'
-                        : '/icons/boton-like.svg',
-                  }}
-                  style={styles.actionIcon}
-                  resizeMode="contain"
-                  onError={() => setUsePngIcons(false)}
-                />
-              ) : (
-                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={22} color={isLiked ? '#EF4444' : '#C4B5FD'} />
-              )}
+              <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={22} color={isLiked ? '#EF4444' : '#C4B5FD'} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={handleShare} accessibilityRole="button" accessibilityLabel="Compartir">
-              {Platform.OS === 'web' ? (
-                <Image
-                  source={{ uri: usePngIcons ? '/icons/boton-compartir.png' : '/icons/boton-compartir.svg' }}
-                  style={styles.actionIcon}
-                  resizeMode="contain"
-                  onError={() => setUsePngIcons(false)}
-                />
-              ) : (
-                <Ionicons name="share-outline" size={22} color="#C4B5FD" />
-              )}
+              <Ionicons name="share-social" size={22} color="#C4B5FD" />
             </TouchableOpacity>
           </View>
         )}
