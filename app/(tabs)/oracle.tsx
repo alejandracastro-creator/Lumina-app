@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated, Image, Dimensions, ScrollView } from 'react-native';
+import { Alert, Platform, Share, StyleSheet, Text, View, TouchableOpacity, Animated, Image, Dimensions, ScrollView } from 'react-native';
 import LuminaBackground from '../../components/LuminaBackground';
 import { ORACLE_BACK_IMAGE, ORACLE_CARDS } from '../../constants/Cards';
 import { ORACLE_REVIEW_MODE } from '../../constants/Data';
@@ -13,6 +13,7 @@ import InfoButton from '../../components/InfoButton';
 const { width } = Dimensions.get('window');
 const ORACLE_USAGE_KEY = 'lumina_oracle_usage_v1';
 const ORACLE_START_DATE_KEY = 'lumina_oracle_start_date';
+const ORACLE_LIKES_KEY = 'lumina_oracle_likes_v1';
 
 const FALLBACK_PALETTES = [
   ['#0F172A', '#7C3AED', '#F472B6'],
@@ -45,9 +46,12 @@ function FallbackOracleImage({ title, message, id }: { title: string; message: s
 export default function OracleScreen() {
   const [card, setCard] = useState<any>(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [usePngIcons, setUsePngIcons] = useState(true);
   const flipAnim = useRef(new Animated.Value(0)).current;
   const sound = useRef<Audio.Sound | null>(null);
   const isAnimatingRef = useRef(false);
+  const shareWrapRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
@@ -87,11 +91,19 @@ export default function OracleScreen() {
         const drawnCard = ORACLE_CARDS.find(c => c.id === lastCardId);
         if (drawnCard) {
           setCard(drawnCard);
+          try {
+            const rawLikes = await AsyncStorage.getItem(ORACLE_LIKES_KEY);
+            const likes = rawLikes ? JSON.parse(rawLikes) : {};
+            setIsLiked(!!likes?.[todayISO]);
+          } catch {
+            setIsLiked(false);
+          }
           await trackOracleUse(todayISO);
           return;
         }
       }
       setCard(null);
+      setIsLiked(false);
     } catch (e) {
       console.error('Error checking draw date', e);
     }
@@ -184,6 +196,13 @@ export default function OracleScreen() {
         await AsyncStorage.setItem('oracle_streak', currentStreak.toString());
         await trackOracleUse(todayISO);
       }
+      try {
+        const rawLikes = await AsyncStorage.getItem(ORACLE_LIKES_KEY);
+        const likes = rawLikes ? JSON.parse(rawLikes) : {};
+        setIsLiked(!!likes?.[todayISO]);
+      } catch {
+        setIsLiked(false);
+      }
     } catch (e) {
       console.error('Error saving draw status', e);
     }
@@ -237,6 +256,77 @@ export default function OracleScreen() {
     zIndex: isFlipped ? 1 : 0, // El frente está arriba al final
   };
 
+  const handleToggleLike = useCallback(async () => {
+    if (!card) return;
+    const todayISO = new Date().toISOString().split('T')[0];
+    try {
+      const raw = await AsyncStorage.getItem(ORACLE_LIKES_KEY);
+      const likes = raw ? JSON.parse(raw) : {};
+      const next = !likes?.[todayISO];
+      const updated = { ...(likes || {}) };
+      if (next) updated[todayISO] = true;
+      else delete updated[todayISO];
+      await AsyncStorage.setItem(ORACLE_LIKES_KEY, JSON.stringify(updated));
+      setIsLiked(next);
+    } catch {
+      setIsLiked((v) => !v);
+    }
+  }, [card]);
+
+  const handleShare = useCallback(async () => {
+    if (!card) return;
+    const shareUrl =
+      Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.location.href
+        : 'https://luminavidaconsciente.netlify.app/';
+    const shareText = `${card.title}\n\n${card.message}\n\n${shareUrl}`;
+
+    if (Platform.OS !== 'web') {
+      try {
+        await Share.share({ message: shareText });
+      } catch {}
+      return;
+    }
+
+    const nav: any = typeof window !== 'undefined' ? window.navigator : null;
+    if (!nav?.share) {
+      try {
+        await nav?.clipboard?.writeText?.(shareText);
+        Alert.alert('Compartir', 'Copiado al portapapeles.');
+      } catch {
+        Alert.alert('Compartir', shareText);
+      }
+      return;
+    }
+
+    let files: File[] | undefined;
+    try {
+      const el = shareWrapRef.current as HTMLElement | null;
+      if (el) {
+        const mod: any = await import('html2canvas');
+        const html2canvas = mod?.default ?? mod;
+        const canvas: HTMLCanvasElement = await html2canvas(el, { backgroundColor: '#0B0720', scale: 2, useCORS: true });
+        const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (blob) {
+          const file = new File([blob], 'lumina-oraculo.png', { type: 'image/png' });
+          if (typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+            files = [file];
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const data: any = {
+        title: 'LUMINA — Oráculo',
+        text: `${card.title}\n\n${card.message}`,
+        url: shareUrl,
+      };
+      if (files?.length) data.files = files;
+      await nav.share(data);
+    } catch {}
+  }, [card]);
+
   return (
     <LuminaBackground style={styles.container}>
       <InfoButton
@@ -247,36 +337,33 @@ export default function OracleScreen() {
         right={16}
       />
       <ScrollView contentContainerStyle={styles.cardWrapper} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity 
-          activeOpacity={1} 
-          onPress={handleFirstTouch} 
-          disabled={false}
-        >
-          <View style={styles.flipContainer}>
-            {/* Reverso de la Carta (Diseño Tarot Bohemio) */}
-            <Animated.View style={[styles.card, styles.cardBack, frontAnimatedStyle]}>
-              <Image source={ORACLE_BACK_IMAGE} style={styles.cardBackImage} resizeMode="cover" />
-            </Animated.View>
+        <View ref={shareWrapRef as any} collapsable={false}>
+          <TouchableOpacity activeOpacity={1} onPress={handleFirstTouch} disabled={false}>
+            <View style={styles.flipContainer}>
+              <Animated.View style={[styles.card, styles.cardBack, frontAnimatedStyle]}>
+                <Image source={ORACLE_BACK_IMAGE} style={styles.cardBackImage} resizeMode="cover" />
+              </Animated.View>
 
-            {/* Frente de la Carta (Contenido) */}
-            <Animated.View style={[
-              styles.card, 
-              styles.cardFront, 
-              backAnimatedStyle, 
-              { opacity: flipAnim.interpolate({ inputRange: [89, 90], outputRange: [0, 1] }) }
-            ]}>
-              {card && (
-                <>
-                  {card.image ? (
-                    <Image source={card.image} style={styles.cardImageFull} resizeMode="cover" />
-                  ) : (
-                    <FallbackOracleImage title={card.title} message={card.message} id={card.id} />
-                  )}
-                </>
-              )}
-            </Animated.View>
-          </View>
-        </TouchableOpacity>
+              <Animated.View
+                style={[
+                  styles.card,
+                  styles.cardFront,
+                  backAnimatedStyle,
+                  { opacity: flipAnim.interpolate({ inputRange: [89, 90], outputRange: [0, 1] }) },
+                ]}
+              >
+                {card && (
+                  <>
+                    {card.image ? (
+                      <Image source={card.image} style={styles.cardImageFull} resizeMode="cover" />
+                    ) : (
+                      <FallbackOracleImage title={card.title} message={card.message} id={card.id} />
+                    )}
+                  </>
+                )}
+              </Animated.View>
+            </View>
+          </TouchableOpacity>
         
         {!isFlipped && (
           <Animated.Text style={[styles.instructions, { opacity: flipAnim.interpolate({ inputRange: [0, 45], outputRange: [1, 0] }) }]}>
@@ -290,6 +377,44 @@ export default function OracleScreen() {
             <ScrollView style={styles.messageScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.messageText}>{card.message}</Text>
             </ScrollView>
+          </View>
+        )}
+        </View>
+
+        {isFlipped && card && (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleToggleLike} accessibilityRole="button" accessibilityLabel="Me gusta">
+              {Platform.OS === 'web' ? (
+                <Image
+                  source={{
+                    uri: isLiked
+                      ? usePngIcons
+                        ? '/icons/boton-like-red.png'
+                        : '/icons/boton-like-red.svg'
+                      : usePngIcons
+                        ? '/icons/boton-like.png'
+                        : '/icons/boton-like.svg',
+                  }}
+                  style={styles.actionIcon}
+                  resizeMode="contain"
+                  onError={() => setUsePngIcons(false)}
+                />
+              ) : (
+                <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={22} color={isLiked ? '#EF4444' : '#C4B5FD'} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleShare} accessibilityRole="button" accessibilityLabel="Compartir">
+              {Platform.OS === 'web' ? (
+                <Image
+                  source={{ uri: usePngIcons ? '/icons/boton-compartir.png' : '/icons/boton-compartir.svg' }}
+                  style={styles.actionIcon}
+                  resizeMode="contain"
+                  onError={() => setUsePngIcons(false)}
+                />
+              ) : (
+                <Ionicons name="share-outline" size={22} color="#C4B5FD" />
+              )}
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -495,6 +620,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(167, 139, 250, 0.35)',
     borderRadius: 20,
     padding: 16,
+    position: 'relative',
   },
   messageTitle: {
     color: '#E9D5FF',
@@ -511,6 +637,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     textAlign: 'center',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 16, 61, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(196, 181, 253, 0.35)',
+    marginHorizontal: 10,
+  },
+  actionIcon: {
+    width: 22,
+    height: 22,
   },
   drawnNotice: {
     color: '#C4B5FD',
