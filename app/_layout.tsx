@@ -1,7 +1,7 @@
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'react-native-reanimated';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ export default function RootLayout() {
   const router = useRouter();
   const [authReady, setAuthReady] = useState(Platform.OS !== 'web');
   const [user, setUser] = useState<any>(null);
+  const reminderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
@@ -101,6 +102,119 @@ export default function RootLayout() {
       router.replace('/(tabs)');
     }
   }, [authReady, pathname, router, user]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!authReady) return;
+    if (typeof window === 'undefined') return;
+
+    const PROMPT_KEY = 'lumina_oracle_notif_prompted_v1';
+    const ENABLED_KEY = 'lumina_oracle_notif_enabled_v1';
+    const LAST_SHOWN_KEY = 'lumina_oracle_notif_last_shown_v1';
+    const MESSAGES = [
+      '🌟¿Ya viste qué carta te revela el Oráculo hoy?',
+      '🌟 Tu mensaje del Oráculo ya está listo.',
+      '🌟¿Qué tiene LUMINA para vos hoy? Descubrí tu carta.',
+      '🌟 Un momento para vos: Mirá qué dice el Oráculo.',
+    ];
+
+    const getLocalIsoDate = (date: Date = new Date()) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const isoToUtcDayNumber = (iso: string) => {
+      const [y, m, d] = iso.split('-').map((v) => Number(v));
+      return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+    };
+
+    const computeNextDelayMs = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(10, 30, 0, 0);
+      if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+      return Math.max(0, next.getTime() - now.getTime());
+    };
+
+    const selectMessage = (iso: string) => {
+      const idx = isoToUtcDayNumber(iso) % MESSAGES.length;
+      return MESSAGES[(idx + MESSAGES.length) % MESSAGES.length];
+    };
+
+    const ensureServiceWorker = async () => {
+      try {
+        const nav: any = window.navigator;
+        if (!nav?.serviceWorker) return null;
+        const reg = await nav.serviceWorker.register('/sw.js', { scope: '/' });
+        try {
+          await reg.update();
+        } catch {}
+        return reg;
+      } catch {
+        return null;
+      }
+    };
+
+    const showOracleNotification = async () => {
+      const iso = getLocalIsoDate();
+      if (window.localStorage.getItem(LAST_SHOWN_KEY) === iso) return;
+      const perm = (window as any).Notification?.permission;
+      if (perm !== 'granted') return;
+
+      const reg = await ensureServiceWorker();
+      const body = selectMessage(iso);
+      try {
+        if (reg?.showNotification) {
+          await reg.showNotification('LUMINA', {
+            body,
+            icon: '/icons/apple-touch-icon.png',
+            badge: '/icons/apple-touch-icon.png',
+            tag: `lumina-oracle-${iso}`,
+            data: { url: '/oracle' },
+          });
+          window.localStorage.setItem(LAST_SHOWN_KEY, iso);
+        }
+      } catch {}
+    };
+
+    const scheduleNext = async () => {
+      if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
+      const enabled = window.localStorage.getItem(ENABLED_KEY) === '1';
+      if (!enabled) return;
+      const delay = computeNextDelayMs();
+      reminderTimerRef.current = setTimeout(async () => {
+        await showOracleNotification();
+        await scheduleNext();
+      }, delay);
+    };
+
+    const maybePrompt = async () => {
+      const alreadyPrompted = window.localStorage.getItem(PROMPT_KEY) === '1';
+      if (alreadyPrompted) return;
+      window.localStorage.setItem(PROMPT_KEY, '1');
+      if (!(window as any).Notification) return;
+      const ok = window.confirm('¿Querés activar recordatorios diarios del Oráculo a las 10:30?');
+      if (!ok) return;
+      try {
+        const perm = await (window as any).Notification.requestPermission();
+        if (perm === 'granted') {
+          window.localStorage.setItem(ENABLED_KEY, '1');
+          await ensureServiceWorker();
+        }
+      } catch {}
+    };
+
+    (async () => {
+      await maybePrompt();
+      await scheduleNext();
+    })();
+
+    return () => {
+      if (reminderTimerRef.current) clearTimeout(reminderTimerRef.current);
+    };
+  }, [authReady]);
 
   if (!fontsLoaded) return null;
   if (!authReady) return null;
