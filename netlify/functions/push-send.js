@@ -1,6 +1,3 @@
-const webPush = require('web-push');
-const { createClient } = require('@supabase/supabase-js');
-
 function buildHeaders() {
   return {
     'content-type': 'application/json; charset=utf-8',
@@ -8,6 +5,22 @@ function buildHeaders() {
     'access-control-allow-methods': 'POST, OPTIONS',
     'access-control-allow-headers': 'content-type, authorization',
   };
+}
+
+async function loadWebPush() {
+  try {
+    return require('web-push');
+  } catch {
+    return await import('web-push');
+  }
+}
+
+async function loadSupabase() {
+  try {
+    return require('@supabase/supabase-js');
+  } catch {
+    return await import('@supabase/supabase-js');
+  }
 }
 
 function isGone(err) {
@@ -76,47 +89,61 @@ exports.handler = async (event) => {
   }
 
   const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:hello@lumina.app';
-  webPush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+  try {
+    const webPush = await loadWebPush();
+    const { createClient } = await loadSupabase();
 
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+    webPush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
-  let query = supabase.from('push_subscriptions').select('id, subscription');
-  if (endpointFilter) query = query.filter('subscription->>endpoint', 'eq', endpointFilter);
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
-  const { data: rows, error: selErr } = await query;
-  if (selErr) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'db_select_failed' }) };
-  }
+    let query = supabase.from('push_subscriptions').select('id, subscription');
+    if (endpointFilter) query = query.eq('subscription->>endpoint', endpointFilter);
 
-  const subs = (rows || []).filter((r) => !!r?.subscription?.endpoint);
-  let sent = 0;
-  let removed = 0;
-  let failed = 0;
-
-  const bodyJson = JSON.stringify(payload);
-
-  await mapLimit(subs, 10, async (row) => {
-    try {
-      await webPush.sendNotification(row.subscription, bodyJson);
-      sent += 1;
-    } catch (err) {
-      if (isGone(err)) {
-        removed += 1;
-        try {
-          await supabase.from('push_subscriptions').delete().eq('id', row.id);
-        } catch {}
-      } else {
-        failed += 1;
-      }
+    const { data: rows, error: selErr } = await query;
+    if (selErr) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'db_select_failed', message: selErr.message }),
+      };
     }
-  });
+
+    const subs = (rows || []).filter((r) => !!r?.subscription?.endpoint);
+    let sent = 0;
+    let removed = 0;
+    let failed = 0;
+
+    const bodyJson = JSON.stringify(payload);
+
+    await mapLimit(subs, 10, async (row) => {
+      try {
+        await webPush.sendNotification(row.subscription, bodyJson);
+        sent += 1;
+      } catch (err) {
+        if (isGone(err)) {
+          removed += 1;
+          try {
+            await supabase.from('push_subscriptions').delete().eq('id', row.id);
+          } catch {}
+        } else {
+          failed += 1;
+        }
+      }
+    });
 
   return {
     statusCode: 200,
     headers,
     body: JSON.stringify({ ok: true, total: subs.length, sent, removed, failed }),
   };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ ok: false, error: 'internal_error', message: err?.message || String(err) }),
+    };
+  }
 };
-

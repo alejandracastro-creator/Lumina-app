@@ -1,5 +1,3 @@
-const { createClient } = require('@supabase/supabase-js');
-
 function buildHeaders() {
   return {
     'content-type': 'application/json; charset=utf-8',
@@ -7,6 +5,14 @@ function buildHeaders() {
     'access-control-allow-methods': 'POST, OPTIONS',
     'access-control-allow-headers': 'content-type, authorization',
   };
+}
+
+async function loadSupabase() {
+  try {
+    return require('@supabase/supabase-js');
+  } catch {
+    return await import('@supabase/supabase-js');
+  }
 }
 
 exports.handler = async (event) => {
@@ -41,38 +47,58 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'missing_supabase_env' }) };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+  try {
+    const { createClient } = await loadSupabase();
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
-  const { data: existing, error: existingErr } = await supabase
-    .from('push_subscriptions')
-    .select('id')
-    .filter('subscription->>endpoint', 'eq', endpoint)
-    .maybeSingle();
+    const { data: existing, error: existingErr } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('subscription->>endpoint', endpoint)
+      .maybeSingle();
 
-  if (existingErr) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'db_select_failed' }) };
-  }
-
-  if (existing?.id) {
-    const { error: updErr } = await supabase.from('push_subscriptions').update({ subscription }).eq('id', existing.id);
-    if (updErr) {
-      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'db_update_failed' }) };
+    if (existingErr) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'db_select_failed', message: existingErr.message }),
+      };
     }
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: existing.id }) };
+
+    if (existing?.id) {
+      const { error: updErr } = await supabase.from('push_subscriptions').update({ subscription }).eq('id', existing.id);
+      if (updErr) {
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ ok: false, error: 'db_update_failed', message: updErr.message }),
+        };
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: existing.id }) };
+    }
+
+    const { data: inserted, error: insErr } = await supabase
+      .from('push_subscriptions')
+      .insert({ subscription })
+      .select('id')
+      .single();
+
+    if (insErr) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ ok: false, error: 'db_insert_failed', message: insErr.message }),
+      };
+    }
+
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: inserted?.id ?? null }) };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ ok: false, error: 'internal_error', message: err?.message || String(err) }),
+    };
   }
-
-  const { data: inserted, error: insErr } = await supabase
-    .from('push_subscriptions')
-    .insert({ subscription })
-    .select('id')
-    .single();
-
-  if (insErr) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'db_insert_failed' }) };
-  }
-
-  return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: inserted?.id ?? null }) };
 };
-
