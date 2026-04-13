@@ -5,6 +5,7 @@
   "display": "standalone",
   "background_color": "#0B0720",
   "theme_color": "#0B0720",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/favicon.svg",
