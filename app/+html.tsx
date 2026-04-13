@@ -8,6 +8,7 @@ export default function RootHtml({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
       <head>
+        <title>LUMINA</title>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
