@@ -5,6 +5,10 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[[scheduled.functions]]
+  name = "schedule-notification"
+  cron = "0 * * * *"
+
 [[redirects]]
   from = "/assets/*"
   to = "/assets/:splat"

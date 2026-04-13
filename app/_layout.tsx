@@ -145,14 +145,14 @@ export default function RootLayout() {
     const isAfterTargetTime = () => {
       const now = new Date();
       const t = new Date(now);
-      t.setHours(10, 30, 0, 0);
+      t.setHours(10, 0, 0, 0);
       return now.getTime() >= t.getTime();
     };
 
     const computeNextDelayMs = () => {
       const now = new Date();
       const next = new Date(now);
-      next.setHours(10, 30, 0, 0);
+      next.setHours(10, 0, 0, 0);
       if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
       return Math.max(0, next.getTime() - now.getTime());
     };
@@ -321,7 +321,7 @@ export default function RootLayout() {
                 Recordatorio del Oráculo
               </Text>
               <Text style={{ color: 'rgba(233, 213, 255, 0.88)', fontSize: 14, lineHeight: 20 }}>
-                Si querés, LUMINA puede enviarte un recordatorio diario a las 10:30 para que mires tu carta.
+                Si querés, LUMINA puede enviarte un recordatorio diario a las 10:00 para que mires tu carta.
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 14, gap: 10 }}>
                 <TouchableOpacity
