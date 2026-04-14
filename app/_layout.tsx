@@ -7,6 +7,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Platform, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { initAnalytics, trackPageView } from '@/lib/analytics';
 import { registerServiceWorker, requestPermission, subscribeToPush } from '@/lib/notifications';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
@@ -38,6 +39,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     registerServiceWorker();
+    try {
+      console.log('ENV CHECK:', {
+        processEnv: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
+        expoConfig: (Constants as any).expoConfig?.extra?.vapidPublicKey,
+        manifest: (Constants as any).manifest?.extra?.vapidPublicKey,
+      });
+    } catch {}
     subscribeToPush();
   }, []);
 
