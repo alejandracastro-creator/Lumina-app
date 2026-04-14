@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Modal, Platform, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { initAnalytics, trackPageView } from '@/lib/analytics';
-import { ensurePushSubscription, registerServiceWorker, requestPermission } from '@/lib/notifications';
+import { registerServiceWorker, requestPermission, subscribeToPush } from '@/lib/notifications';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -38,7 +38,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     registerServiceWorker();
-    ensurePushSubscription();
+    subscribeToPush();
   }, []);
 
   useEffect(() => {
@@ -265,7 +265,7 @@ export default function RootLayout() {
       if (perm === 'granted') {
         window.localStorage.setItem('lumina_oracle_notif_enabled_v1', '1');
         setNotifEnabled(true);
-        ensurePushSubscription();
+        subscribeToPush();
         try {
           const reg = await (window.navigator as any).serviceWorker?.register?.('/sw.js', { scope: '/' });
           try {

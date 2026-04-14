@@ -39,7 +39,12 @@ export async function ensurePushSubscription(): Promise<boolean> {
   const perm = (window as any).Notification?.permission;
   if (perm !== 'granted') return false;
   const vapidPublicKey = process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!vapidPublicKey) return false;
+  if (!vapidPublicKey) {
+    try {
+      console.error('push: missing EXPO_PUBLIC_VAPID_PUBLIC_KEY');
+    } catch {}
+    return false;
+  }
 
   const reg = await registerServiceWorker();
   if (!reg?.pushManager) return false;
@@ -59,10 +64,26 @@ export async function ensurePushSubscription(): Promise<boolean> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      let detail = '';
+      try {
+        detail = await res.text();
+      } catch {}
+      try {
+        console.error('push: push-subscribe failed', res.status, detail);
+      } catch {}
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    try {
+      console.error('push: subscribe failed', err);
+    } catch {}
     return false;
   }
+}
+
+export async function subscribeToPush(): Promise<boolean> {
+  return ensurePushSubscription();
 }
 
 export async function scheduleLocalNotification(title: string, body: string, delayMinutes: number): Promise<void> {
