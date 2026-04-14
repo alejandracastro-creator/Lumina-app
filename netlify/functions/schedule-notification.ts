@@ -3,6 +3,8 @@ type NetlifyEvent = {
   headers?: Record<string, string | undefined>;
 };
 
+export const config = { schedule: "0 13,23 * * *" };
+
 function json(statusCode: number, body: any) {
   return {
     statusCode,
@@ -88,4 +90,3 @@ export const handler = async (event: NetlifyEvent) => {
 
   return json(200, { ok: true, mode, response: out });
 };
-
