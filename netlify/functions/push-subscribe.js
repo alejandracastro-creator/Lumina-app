@@ -46,6 +46,9 @@ exports.handler = async (event) => {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'missing_supabase_env' }) };
   }
+  if (!/^https?:\/\//i.test(String(supabaseUrl))) {
+    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'invalid_supabase_url' }) };
+  }
 
   try {
     const { createClient } = await loadSupabase();

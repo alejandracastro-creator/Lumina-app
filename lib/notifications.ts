@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined') return null;
   const nav: any = window.navigator;
@@ -38,7 +40,11 @@ export async function ensurePushSubscription(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   const perm = (window as any).Notification?.permission;
   if (perm !== 'granted') return false;
-  const vapidPublicKey = process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY;
+  const extraKey =
+    (Constants as any)?.expoConfig?.extra?.vapidPublicKey ??
+    (Constants as any)?.manifest?.extra?.vapidPublicKey ??
+    (Constants as any)?.manifest2?.extra?.vapidPublicKey;
+  const vapidPublicKey = extraKey || process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidPublicKey) {
     try {
       console.error('push: missing EXPO_PUBLIC_VAPID_PUBLIC_KEY');
