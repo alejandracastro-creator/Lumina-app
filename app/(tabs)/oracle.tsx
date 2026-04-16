@@ -9,11 +9,13 @@ import { Audio } from 'expo-av';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import InfoButton from '../../components/InfoButton';
+import { requestPermission, subscribeToPush } from '@/lib/notifications';
 
 const { width } = Dimensions.get('window');
 const ORACLE_USAGE_KEY = 'lumina_oracle_usage_v1';
 const ORACLE_START_DATE_KEY = 'lumina_oracle_start_date';
 const ORACLE_LIKES_KEY = 'lumina_oracle_likes_v1';
+const PUSH_PROMPT_SNOOZE_UNTIL_KEY = 'lumina_push_prompt_snooze_until_v1';
 
 const FALLBACK_PALETTES = [
   ['#0F172A', '#7C3AED', '#F472B6'],
@@ -48,10 +50,13 @@ export default function OracleScreen() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [usePngIcons, setUsePngIcons] = useState(true);
+  const [pushPromptOpen, setPushPromptOpen] = useState(false);
+  const [pushPromptBusy, setPushPromptBusy] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
   const sound = useRef<Audio.Sound | null>(null);
   const isAnimatingRef = useRef(false);
   const shareWrapRef = useRef<any>(null);
+  const pushPromptShownRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -60,6 +65,26 @@ export default function OracleScreen() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!card || !isFlipped) return;
+    if (pushPromptShownRef.current) return;
+    pushPromptShownRef.current = true;
+
+    (async () => {
+      const perm = (globalThis as any)?.Notification?.permission;
+      if (perm === 'granted') return;
+
+      try {
+        const raw = await AsyncStorage.getItem(PUSH_PROMPT_SNOOZE_UNTIL_KEY);
+        const until = raw ? Number(raw) : 0;
+        if (Number.isFinite(until) && until > Date.now()) return;
+      } catch {}
+
+      setPushPromptOpen(true);
+    })();
+  }, [card, isFlipped]);
 
   const trackOracleUse = useCallback(async (dateISO: string) => {
     try {
@@ -368,6 +393,53 @@ export default function OracleScreen() {
           </View>
         )}
       </ScrollView>
+      {Platform.OS === 'web' && pushPromptOpen && (
+        <View style={styles.pushPromptWrap}>
+          <View style={styles.pushPromptCard}>
+            <Text style={styles.pushPromptTitle}>¿Querés recibir tu aviso diario del Oráculo?</Text>
+            <Text style={styles.pushPromptBody}>
+              ✨ Activá las notificaciones para no perderte ningún mensaje.
+            </Text>
+            <View style={styles.pushPromptActions}>
+              <TouchableOpacity
+                style={styles.pushPromptSecondary}
+                disabled={pushPromptBusy}
+                onPress={async () => {
+                  try {
+                    await AsyncStorage.setItem(PUSH_PROMPT_SNOOZE_UNTIL_KEY, String(Date.now() + 24 * 60 * 60 * 1000));
+                  } catch {}
+                  setPushPromptOpen(false);
+                }}
+              >
+                <Text style={styles.pushPromptSecondaryText}>Ahora no</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pushPromptPrimary, pushPromptBusy && styles.pushPromptPrimaryDisabled]}
+                disabled={pushPromptBusy}
+                onPress={async () => {
+                  setPushPromptBusy(true);
+                  try {
+                    const perm = await requestPermission();
+                    if (perm === 'granted') {
+                      await subscribeToPush();
+                      setPushPromptOpen(false);
+                    } else {
+                      try {
+                        await AsyncStorage.setItem(PUSH_PROMPT_SNOOZE_UNTIL_KEY, String(Date.now() + 24 * 60 * 60 * 1000));
+                      } catch {}
+                      setPushPromptOpen(false);
+                    }
+                  } finally {
+                    setPushPromptBusy(false);
+                  }
+                }}
+              >
+                <Text style={styles.pushPromptPrimaryText}>{pushPromptBusy ? 'Activando…' : 'Activar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </LuminaBackground>
   );
 }
@@ -614,5 +686,66 @@ const styles = StyleSheet.create({
     marginTop: 30,
     fontSize: 16,
     fontStyle: 'italic',
+  },
+  pushPromptWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 18,
+    paddingHorizontal: 18,
+  },
+  pushPromptCard: {
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: 'rgba(26, 16, 61, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(196, 181, 253, 0.32)',
+  },
+  pushPromptTitle: {
+    color: '#E9D5FF',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  pushPromptBody: {
+    color: 'rgba(233, 213, 255, 0.86)',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  pushPromptActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pushPromptSecondary: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  pushPromptSecondaryText: {
+    color: '#E9D5FF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  pushPromptPrimary: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 207, 232, 0.65)',
+    backgroundColor: 'rgba(219, 39, 119, 0.78)',
+  },
+  pushPromptPrimaryDisabled: {
+    opacity: 0.7,
+  },
+  pushPromptPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
   },
 });
