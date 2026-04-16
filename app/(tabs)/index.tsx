@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Alert } from 'react-native';
 import LuminaBackground from '../../components/LuminaBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,9 @@ export default function HomeScreen() {
   const [streak, setStreak] = useState(0);
   const [ritualProgress, setRitualProgress] = useState(0);
   const [ritualBehind, setRitualBehind] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminJwt, setAdminJwt] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
   const loadStats = useCallback(async () => {
     try {
@@ -85,6 +88,56 @@ export default function HomeScreen() {
     ).start();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
+    const current = identity?.currentUser?.();
+    const email = current?.email;
+    const jwt =
+      current?.token?.access_token ||
+      current?.token?.accessToken ||
+      current?.token?.token ||
+      current?.token ||
+      null;
+    setIsAdmin(email === 'disalejandracastro@gmail.com');
+    setAdminJwt(typeof jwt === 'string' ? jwt : null);
+  }, []);
+
+  const handleSendOracleToAll = useCallback(async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const messages = [
+        '🌟¿Ya viste qué carta te revela el Oráculo hoy?',
+        '🌟 Tu mensaje del Oráculo ya está listo.',
+        '🌟¿Qué tiene LUMINA para vos hoy? Descubrí tu carta.',
+        '🌟 Un momento para vos: Mirá qué dice el Oráculo.',
+      ];
+      const day = Math.floor(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) / 86400000);
+      const msg = messages[((day % messages.length) + messages.length) % messages.length];
+
+      const res = await fetch('/.netlify/functions/push-send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(adminJwt ? { authorization: `Bearer ${adminJwt}` } : {}),
+        },
+        body: JSON.stringify({ title: 'LUMINA', body: msg, url: '/oracle' }),
+      });
+
+      const text = await res.text();
+      if (!res.ok) {
+        Alert.alert('Error', `push-send: ${res.status}\n${text}`);
+        return;
+      }
+      Alert.alert('Enviado', text);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || String(e));
+    } finally {
+      setSending(false);
+    }
+  }, [adminJwt, sending]);
+
   return (
     <LuminaBackground style={styles.container}>
       <InfoButton
@@ -133,6 +186,11 @@ export default function HomeScreen() {
             <Ionicons name="sparkles" size={24} color="#FDE68A" />
           </Animated.View>
         </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity style={[styles.adminButton, sending && styles.adminButtonDisabled]} onPress={handleSendOracleToAll}>
+            <Text style={styles.adminButtonText}>{sending ? 'ENVIANDO…' : 'ENVIAR ORÁCULO A TODOS'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </LuminaBackground>
   );
@@ -247,5 +305,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 24,
     height: 24,
+  },
+  adminButton: {
+    marginTop: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    width: '100%',
+    maxWidth: 520,
+    alignItems: 'center',
+  },
+  adminButtonDisabled: {
+    opacity: 0.65,
+  },
+  adminButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    textAlign: 'center',
   },
 });

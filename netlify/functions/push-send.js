@@ -57,7 +57,10 @@ exports.handler = async (event) => {
   if (adminToken) {
     const auth = event.headers?.authorization || event.headers?.Authorization || '';
     if (auth !== `Bearer ${adminToken}`) {
-      return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'unauthorized' }) };
+      const email = event.clientContext?.user?.email;
+      if (email !== 'disalejandracastro@gmail.com') {
+        return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'unauthorized' }) };
+      }
     }
   }
 
