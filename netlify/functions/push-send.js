@@ -54,14 +54,12 @@ exports.handler = async (event) => {
   }
 
   const adminToken = process.env.PUSH_ADMIN_TOKEN;
-  if (adminToken) {
-    const auth = event.headers?.authorization || event.headers?.Authorization || '';
-    if (auth !== `Bearer ${adminToken}`) {
-      const email = event.clientContext?.user?.email;
-      if (email !== 'disalejandracastro@gmail.com') {
-        return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'unauthorized' }) };
-      }
-    }
+  const auth = event.headers?.authorization || event.headers?.Authorization || '';
+  const email = event.clientContext?.user?.email;
+  const isAdminEmail = email === 'disalejandracastro@gmail.com';
+  const hasAdminToken = !!adminToken && auth === `Bearer ${adminToken}`;
+  if (!hasAdminToken && !isAdminEmail) {
+    return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'unauthorized' }) };
   }
 
   let body;

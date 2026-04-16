@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native';
 import LuminaBackground from '../../components/LuminaBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import InfoButton from '../../components/InfoButton';
+
+const ADMIN_EMAIL = 'disalejandracastro@gmail.com';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -15,7 +17,7 @@ export default function HomeScreen() {
   const [ritualBehind, setRitualBehind] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminJwt, setAdminJwt] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
+  const [sendState, setSendState] = useState<'idle' | 'waiting' | 'sending' | 'success' | 'error'>('idle');
 
   const loadStats = useCallback(async () => {
     try {
@@ -90,23 +92,37 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
-    const current = identity?.currentUser?.();
-    const email = current?.email;
-    const jwt =
-      current?.token?.access_token ||
-      current?.token?.accessToken ||
-      current?.token?.token ||
-      current?.token ||
-      null;
-    setIsAdmin(email === 'disalejandracastro@gmail.com');
-    setAdminJwt(typeof jwt === 'string' ? jwt : null);
+    let tries = 0;
+    const sync = () => {
+      const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
+      const current = identity?.currentUser?.();
+      const email = current?.email;
+      const jwt =
+        current?.token?.access_token ||
+        current?.token?.accessToken ||
+        current?.token?.token ||
+        current?.token ||
+        null;
+      setIsAdmin(email === ADMIN_EMAIL);
+      setAdminJwt(typeof jwt === 'string' ? jwt : null);
+      return !!identity;
+    };
+
+    if (sync()) return;
+    const t = window.setInterval(() => {
+      tries += 1;
+      if (sync() || tries > 30) window.clearInterval(t);
+    }, 100);
+    return () => window.clearInterval(t);
   }, []);
 
   const handleSendOracleToAll = useCallback(async () => {
-    if (sending) return;
-    setSending(true);
+    if (!isAdmin) return;
+    if (sendState === 'waiting' || sendState === 'sending') return;
+    setSendState('waiting');
     try {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 10000));
+      setSendState('sending');
       const messages = [
         '🌟¿Ya viste qué carta te revela el Oráculo hoy?',
         '🌟 Tu mensaje del Oráculo ya está listo.',
@@ -125,18 +141,16 @@ export default function HomeScreen() {
         body: JSON.stringify({ title: 'LUMINA', body: msg, url: '/oracle' }),
       });
 
-      const text = await res.text();
       if (!res.ok) {
-        Alert.alert('Error', `push-send: ${res.status}\n${text}`);
+        setSendState('error');
         return;
       }
-      Alert.alert('Enviado', text);
+      setSendState('success');
     } catch (e: any) {
-      Alert.alert('Error', e?.message || String(e));
+      setSendState('error');
     } finally {
-      setSending(false);
     }
-  }, [adminJwt, sending]);
+  }, [adminJwt, isAdmin, sendState]);
 
   return (
     <LuminaBackground style={styles.container}>
@@ -186,12 +200,28 @@ export default function HomeScreen() {
             <Ionicons name="sparkles" size={24} color="#FDE68A" />
           </Animated.View>
         </TouchableOpacity>
-        {isAdmin && (
-          <TouchableOpacity style={[styles.adminButton, sending && styles.adminButtonDisabled]} onPress={handleSendOracleToAll}>
-            <Text style={styles.adminButtonText}>{sending ? 'ENVIANDO…' : 'ENVIAR ORÁCULO A TODOS'}</Text>
-          </TouchableOpacity>
-        )}
       </View>
+      {isAdmin && (
+        <TouchableOpacity
+          style={[
+            styles.adminFab,
+            (sendState === 'waiting' || sendState === 'sending') && styles.adminFabDisabled,
+            sendState === 'success' && styles.adminFabSuccess,
+            sendState === 'error' && styles.adminFabError,
+          ]}
+          onPress={handleSendOracleToAll}
+        >
+          <Text style={styles.adminFabText}>
+            {sendState === 'success'
+              ? '¡Enviado con éxito!'
+              : sendState === 'sending'
+                ? 'Enviando…'
+                : sendState === 'waiting'
+                  ? 'Enviando en 10s…'
+                  : 'Enviar Oráculo'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </LuminaBackground>
   );
 }
@@ -306,26 +336,33 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
-  adminButton: {
-    marginTop: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    backgroundColor: 'rgba(239, 68, 68, 0.92)',
+  adminFab: {
+    position: 'absolute',
+    right: 14,
+    bottom: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(17, 24, 39, 0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    width: '100%',
-    maxWidth: 520,
-    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  adminButtonDisabled: {
-    opacity: 0.65,
+  adminFabDisabled: {
+    opacity: 0.6,
   },
-  adminButtonText: {
+  adminFabSuccess: {
+    backgroundColor: 'rgba(16, 185, 129, 0.78)',
+    borderColor: 'rgba(167, 243, 208, 0.55)',
+  },
+  adminFabError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.78)',
+    borderColor: 'rgba(254, 202, 202, 0.55)',
+  },
+  adminFabText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.6,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
     textAlign: 'center',
   },
 });
