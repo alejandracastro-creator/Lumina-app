@@ -34,6 +34,7 @@ exports.handler = async (event) => {
   }
 
   const subscription = body?.subscription;
+  const previousEndpoint = body?.previousEndpoint;
   const endpoint = subscription?.endpoint;
   const keys = subscription?.keys;
 
@@ -55,6 +56,12 @@ exports.handler = async (event) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
+
+    if (previousEndpoint && previousEndpoint !== endpoint) {
+      try {
+        await supabase.from('push_subscriptions').delete().eq('subscription->>endpoint', previousEndpoint);
+      } catch {}
+    }
 
     const { data: existing, error: existingErr } = await supabase
       .from('push_subscriptions')

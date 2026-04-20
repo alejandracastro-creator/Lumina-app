@@ -28,6 +28,16 @@ function isGone(err) {
   return code === 404 || code === 410;
 }
 
+function formatPushError(err, endpoint) {
+  return {
+    endpoint,
+    statusCode: err?.statusCode ?? err?.status ?? null,
+    headers: err?.headers ?? null,
+    body: err?.body ?? null,
+    message: err?.message || String(err),
+  };
+}
+
 async function mapLimit(items, limit, fn) {
   const results = [];
   let idx = 0;
@@ -116,14 +126,22 @@ exports.handler = async (event) => {
     let sent = 0;
     let removed = 0;
     let failed = 0;
+    const failures = [];
 
     const bodyJson = JSON.stringify(payload);
 
     await mapLimit(subs, 10, async (row) => {
       try {
-        await webPush.sendNotification(row.subscription, bodyJson);
+        await webPush.sendNotification(row.subscription, bodyJson, {
+          TTL: 86400,
+          urgency: 'high',
+        });
         sent += 1;
       } catch (err) {
+        const detail = formatPushError(err, row?.subscription?.endpoint || null);
+        // Netlify logs: muestra causa exacta devuelta por FCM/APNs/WebPush gateway.
+        console.error('push-send delivery failed', detail);
+        if (failures.length < 25) failures.push(detail);
         if (isGone(err)) {
           removed += 1;
           try {
@@ -138,7 +156,7 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify({ ok: true, total: subs.length, sent, removed, failed }),
+    body: JSON.stringify({ ok: true, total: subs.length, sent, removed, failed, failures }),
   };
   } catch (err) {
     return {

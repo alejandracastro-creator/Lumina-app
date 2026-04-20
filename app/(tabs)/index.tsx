@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Alert } from 'react-native';
 import LuminaBackground from '../../components/LuminaBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -142,6 +142,11 @@ export default function HomeScreen() {
       });
 
       if (!res.ok) {
+        let detail = '';
+        try {
+          detail = await res.text();
+        } catch {}
+        Alert.alert('Error de envío', `push-send ${res.status}\n${detail || 'Sin detalle del servidor'}`);
         setSendState('error');
         return;
       }

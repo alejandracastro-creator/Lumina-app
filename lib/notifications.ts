@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 
 const VAPID_PUBLIC_KEY = 'BBrN0_QQxEEFLP1eGddPQGoBqE1_iNpXPRcMJdk_9iCaebgydQXS9BfV_lCYL1mtdl8PRkQkVaM8bjzQ85_Olvs';
+const LAST_PUSH_ENDPOINT_KEY = 'lumina_last_push_endpoint_v1';
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined') return null;
@@ -66,12 +67,24 @@ export async function ensurePushSubscription(): Promise<boolean> {
       });
     }
 
-    const payload = { subscription: sub?.toJSON ? sub.toJSON() : sub };
+    const serialized = sub?.toJSON ? sub.toJSON() : sub;
+    const currentEndpoint = serialized?.endpoint || null;
+    let previousEndpoint: string | null = null;
+    try {
+      previousEndpoint = window.localStorage.getItem(LAST_PUSH_ENDPOINT_KEY);
+    } catch {}
+
+    const payload = { subscription: serialized, previousEndpoint };
     const res = await fetch('/.netlify/functions/push-subscribe', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    if (res.ok && currentEndpoint) {
+      try {
+        window.localStorage.setItem(LAST_PUSH_ENDPOINT_KEY, currentEndpoint);
+      } catch {}
+    }
     if (!res.ok) {
       let detail = '';
       try {

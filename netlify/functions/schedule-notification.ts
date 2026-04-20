@@ -3,7 +3,7 @@ type NetlifyEvent = {
   headers?: Record<string, string | undefined>;
 };
 
-export const config = { schedule: "0 13,23 * * *" };
+export const config = { schedule: "*/30 * * * *" };
 
 function json(statusCode: number, body: any) {
   return {
@@ -31,15 +31,13 @@ export const handler = async (event: NetlifyEvent) => {
   const minute = now.getUTCMinutes();
   const day = utcDayNumber(now);
 
-  if (minute !== 0) return json(200, { ok: true, skipped: true, reason: 'not_top_of_hour' });
-
-  const morningHourUtc = 13;
-  const nightHourUtc = 23;
+  const isMorning = hour === 12 && minute === 30; // 09:30 Argentina (UTC-3)
+  const isNight = hour === 23 && minute === 0; // 20:00 Argentina (UTC-3)
 
   let mode: 'morning' | 'night' | null = null;
-  if (hour === morningHourUtc) mode = 'morning';
-  if (hour === nightHourUtc) mode = 'night';
-  if (!mode) return json(200, { ok: true, skipped: true, reason: 'not_scheduled_hour', hour });
+  if (isMorning) mode = 'morning';
+  if (isNight) mode = 'night';
+  if (!mode) return json(200, { ok: true, skipped: true, reason: 'not_scheduled_time', hour, minute });
 
   const morningMessages = [
     '🌟¿Ya viste qué carta te revela el Oráculo hoy?',
