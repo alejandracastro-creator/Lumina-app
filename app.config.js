@@ -8,8 +8,10 @@ module.exports = ({ config } = {}) => {
       extra: {
         ...(base.extra || {}),
         vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
+        googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+        googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+        googleExpoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
       },
     },
   };
 };
-

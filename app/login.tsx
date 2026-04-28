@@ -3,12 +3,28 @@ import { Alert, Platform, StyleSheet, Text, View, TouchableOpacity, TextInput } 
 import LuminaBackground from '../components/LuminaBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const autoOpenedRef = React.useRef(false);
+
+  WebBrowser.maybeCompleteAuthSession();
+
+  const googleAndroidClientId = (Constants as any)?.expoConfig?.extra?.googleAndroidClientId;
+  const googleWebClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId;
+  const googleExpoClientId = (Constants as any)?.expoConfig?.extra?.googleExpoClientId;
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: googleAndroidClientId,
+    webClientId: googleWebClientId,
+    expoClientId: googleExpoClientId,
+  });
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -52,9 +68,33 @@ export default function LoginScreen() {
     return () => clearInterval(poll);
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (response?.type !== 'success') return;
+    const accessToken = (response as any)?.authentication?.accessToken;
+    if (!accessToken) return;
+    (async () => {
+      try {
+        const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { authorization: `Bearer ${accessToken}` },
+        });
+        const info = await res.json();
+        const userObj = { email: info?.email || null, name: info?.name || null, provider: 'google' };
+        await AsyncStorage.setItem('lumina_native_user_v1', JSON.stringify(userObj));
+        router.replace('/(tabs)');
+      } catch {
+        Alert.alert('Login', 'No se pudo completar el login con Google. Probá de nuevo.');
+      }
+    })();
+  }, [response, router]);
+
   const openLogin = () => {
     if (Platform.OS !== 'web') {
-      router.replace('/(tabs)');
+      if (!request) {
+        Alert.alert('Login', 'Google Login no está listo todavía.');
+        return;
+      }
+      promptAsync();
       return;
     }
     const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
@@ -66,10 +106,7 @@ export default function LoginScreen() {
   };
 
   const loginWithEmail = async () => {
-    if (Platform.OS !== 'web') {
-      router.replace('/(tabs)');
-      return;
-    }
+    if (Platform.OS !== 'web') return;
     const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
     if (!identity) {
       Alert.alert('Login', 'Netlify Identity no está disponible todavía. Probá recargar la página.');
@@ -96,44 +133,48 @@ export default function LoginScreen() {
             <Text style={styles.googleButtonText}>Continuar con Google</Text>
           </TouchableOpacity>
 
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
-            <View style={styles.dividerLine} />
-          </View>
+          {Platform.OS === 'web' && (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>o</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#C4B5FD" style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Email" 
-              placeholderTextColor="rgba(196, 181, 253, 0.5)"
-              autoCapitalize="none"
-              autoComplete="email"
-              textContentType="emailAddress"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#C4B5FD" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="rgba(196, 181, 253, 0.5)"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
 
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#C4B5FD" style={styles.inputIcon} />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Contraseña" 
-              placeholderTextColor="rgba(196, 181, 253, 0.5)"
-              secureTextEntry
-              autoComplete="current-password"
-              textContentType="password"
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#C4B5FD" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Contraseña"
+                  placeholderTextColor="rgba(196, 181, 253, 0.5)"
+                  secureTextEntry
+                  autoComplete="current-password"
+                  textContentType="password"
+                  value={password}
+                  onChangeText={setPassword}
+                />
+              </View>
 
-          <TouchableOpacity style={styles.loginButton} onPress={loginWithEmail}>
-            <Text style={styles.loginButtonText}>Ingresar</Text>
-          </TouchableOpacity>
+              <TouchableOpacity style={styles.loginButton} onPress={loginWithEmail}>
+                <Text style={styles.loginButtonText}>Ingresar</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </LuminaBackground>

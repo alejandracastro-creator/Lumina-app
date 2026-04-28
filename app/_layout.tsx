@@ -9,8 +9,9 @@ import { Modal, Platform, Pressable, Text, TouchableOpacity, View } from 'react-
 import { usePathname, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { initAnalytics, trackPageView } from '@/lib/analytics';
-import { registerServiceWorker, requestPermission, subscribeToPush } from '@/lib/notifications';
+import { ensureDailyLocalNotifications, registerServiceWorker, requestPermission, subscribeToPush } from '@/lib/notifications';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -19,7 +20,7 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({ ...Ionicons.font, PlayfairDisplay_700Bold });
   const pathname = usePathname();
   const router = useRouter();
-  const [authReady, setAuthReady] = useState(Platform.OS !== 'web');
+  const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<any>(null);
   const reminderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notifPromptOpen, setNotifPromptOpen] = useState(false);
@@ -37,6 +38,32 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    if (Platform.OS === 'web') {
+      setAuthReady(true);
+      return;
+    }
+
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('lumina_native_user_v1');
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!mounted) return;
+        setUser(parsed || null);
+        setAuthReady(true);
+      } catch {
+        if (!mounted) return;
+        setUser(null);
+        setAuthReady(true);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (Platform.OS !== 'web') return;
     registerServiceWorker();
     try {
@@ -48,6 +75,32 @@ export default function RootLayout() {
     } catch {}
     subscribeToPush();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!authReady) return;
+    ensureDailyLocalNotifications();
+  }, [authReady]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!authReady) return;
+    let sub: any = null;
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        sub = Notifications.addNotificationResponseReceivedListener((response: any) => {
+          const url = response?.notification?.request?.content?.data?.url;
+          if (typeof url === 'string' && url.length) router.push(url);
+        });
+      } catch {}
+    })();
+    return () => {
+      try {
+        sub?.remove?.();
+      } catch {}
+    };
+  }, [authReady, router]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -108,7 +161,6 @@ export default function RootLayout() {
   }, [router]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
     if (!authReady) return;
     if (!pathname) return;
 
