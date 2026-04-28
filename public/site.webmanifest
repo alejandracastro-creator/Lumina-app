@@ -8,13 +8,13 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icons/icono%2012.png",
+      "src": "/icons/Icon.png",
       "sizes": "1024x1024",
       "type": "image/png"
     },
     {
-      "src": "/icons/apple-touch-icon.png",
-      "sizes": "180x180",
+      "src": "/icons/Icon.png",
+      "sizes": "1024x1024",
       "type": "image/png"
     }
   ]

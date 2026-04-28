@@ -19,13 +19,13 @@ export default function RootHtml({ children }: { children: React.ReactNode }) {
         <meta name="apple-mobile-web-app-title" content="LUMINA" />
         <ScrollViewStyleReset />
         <link rel="manifest" href="/site.webmanifest" />
-        <link rel="icon" href="/icons/icono%2012.png" type="image/png" />
+        <link rel="icon" href="/icons/Icon.png" type="image/png" />
         <link rel="apple-touch-icon" href={`/icons/apple-touch-icon.png?v=${ASSET_VERSION}`} sizes="180x180" />
         <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#4C1D95" />
         <meta property="og:title" content="LUMINA" />
-        <meta property="og:image" content="/icons/banner%20lumina.png" />
+        <meta property="og:image" content="/icons/banner.png" />
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:image" content="/icons/banner%20lumina.png" />
+        <meta property="twitter:image" content="/icons/banner.png" />
         <style
           dangerouslySetInnerHTML={{
             __html: `

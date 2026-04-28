@@ -3,9 +3,9 @@
     "name": "LUMINA",
     "slug": "LUMINA",
     "version": "1.0.0",
-    "icon": "./public/icons/icono 12.png",
+    "icon": "./public/icons/Icon.png",
     "splash": {
-      "image": "./public/icons/icono 12.png",
+      "image": "./public/icons/Icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B0720"
     },
@@ -18,14 +18,14 @@
     "android": {
       "package": "com.u.lumina",
       "adaptiveIcon": {
-        "foregroundImage": "./public/icons/icono 12.png",
+        "foregroundImage": "./public/icons/icontransparente.png",
         "backgroundColor": "#0B0720"
       }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./public/icons/icono 12.png"
+      "favicon": "./public/icons/Icon.png"
     },
     "plugins": [
       "expo-router",
