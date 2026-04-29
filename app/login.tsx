@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 
@@ -19,11 +20,14 @@ export default function LoginScreen() {
   const googleAndroidClientId = (Constants as any)?.expoConfig?.extra?.googleAndroidClientId;
   const googleWebClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId;
   const googleExpoClientId = (Constants as any)?.expoConfig?.extra?.googleExpoClientId;
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'lumina' });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
+    redirectUri,
     androidClientId: googleAndroidClientId,
     webClientId: googleWebClientId,
     expoClientId: googleExpoClientId,
+    scopes: ['profile', 'email'],
   });
 
   useEffect(() => {
@@ -94,7 +98,7 @@ export default function LoginScreen() {
         Alert.alert('Login', 'Google Login no está listo todavía.');
         return;
       }
-      promptAsync();
+      promptAsync({ useProxy: false });
       return;
     }
     const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
