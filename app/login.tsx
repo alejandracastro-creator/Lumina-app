@@ -8,6 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
+import { createClient } from '@supabase/supabase-js';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -18,16 +19,17 @@ export default function LoginScreen() {
   WebBrowser.maybeCompleteAuthSession();
 
   const googleAndroidClientId = (Constants as any)?.expoConfig?.extra?.googleAndroidClientId;
-  const googleWebClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId;
+  const googleClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId || process.env.GOOGLE_CLIENT_ID;
   const googleExpoClientId = (Constants as any)?.expoConfig?.extra?.googleExpoClientId;
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'lumina' });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     redirectUri,
     androidClientId: googleAndroidClientId,
-    webClientId: googleWebClientId,
+    webClientId: googleClientId,
     expoClientId: googleExpoClientId,
     scopes: ['profile', 'email'],
+    responseType: AuthSession.ResponseType.IdToken,
   });
 
   useEffect(() => {
@@ -75,15 +77,44 @@ export default function LoginScreen() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     if (response?.type !== 'success') return;
-    const accessToken = (response as any)?.authentication?.accessToken;
-    if (!accessToken) return;
+    const idToken = (response as any)?.params?.id_token;
+    if (!idToken) {
+      Alert.alert('Login', 'No se recibió idToken de Google.');
+      return;
+    }
     (async () => {
       try {
-        const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { authorization: `Bearer ${accessToken}` },
+        const supabaseUrl = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
+        const supabaseAnonKey = (Constants as any)?.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !supabaseAnonKey) {
+          Alert.alert('Login', 'Faltan SUPABASE_URL o SUPABASE_ANON_KEY.');
+          return;
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            storage: AsyncStorage as any,
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false,
+          },
         });
-        const info = await res.json();
-        const userObj = { email: info?.email || null, name: info?.name || null, provider: 'google' };
+
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+        if (error) {
+          Alert.alert('Login', error.message || 'Error al iniciar sesión con Supabase.');
+          return;
+        }
+
+        const userObj = {
+          id: data?.user?.id ?? null,
+          email: data?.user?.email ?? null,
+          name: (data?.user as any)?.user_metadata?.full_name ?? (data?.user as any)?.user_metadata?.name ?? null,
+          provider: 'google',
+        };
         await AsyncStorage.setItem('lumina_native_user_v1', JSON.stringify(userObj));
         router.replace('/(tabs)');
       } catch {
