@@ -2,7 +2,7 @@
   "expo": {
     "name": "LUMINA",
     "slug": "LUMINA",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "icon": "./public/icons/Icon2.png",
     "splash": {
       "image": "./public/icons/Icon.png",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.u.lumina",
-      "versionCode": 3,
+      "versionCode": 4,
       "notification": {
         "icon": "./public/icons/Icon.png",
         "color": "#0B0720"
