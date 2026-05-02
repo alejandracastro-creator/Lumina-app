@@ -4,11 +4,9 @@ import LuminaBackground from '../components/LuminaBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -16,23 +14,18 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const autoOpenedRef = React.useRef(false);
 
-  WebBrowser.maybeCompleteAuthSession();
-
   const googleAndroidClientId = (Constants as any)?.expoConfig?.extra?.googleAndroidClientId;
   const googleClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId || process.env.GOOGLE_CLIENT_ID;
-  const googleExpoClientId = (Constants as any)?.expoConfig?.extra?.googleExpoClientId;
-  const redirectUri = AuthSession.makeRedirectUri({
-    native: 'lumina://flowName=GeneralOAuthFlow',
-  });
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: googleAndroidClientId,
-    webClientId: googleClientId,
-    redirectUri,
-    scopes: ['openid', 'profile', 'email'],
-    responseType: AuthSession.ResponseType.IdToken,
-    usePKCE: false,
-  });
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    GoogleSignin.configure({
+      webClientId: googleClientId,
+      androidClientId: googleAndroidClientId,
+      offlineAccess: false,
+      scopes: ['profile', 'email'],
+    });
+  }, [googleAndroidClientId, googleClientId]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -76,19 +69,19 @@ export default function LoginScreen() {
     return () => clearInterval(poll);
   }, []);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (response?.type !== 'success') return;
-    const idToken = (response as any)?.params?.id_token;
-    console.log('RESPONSE TYPE:', response?.type);
-    console.log('RESPONSE PARAMS:', JSON.stringify((response as any)?.params));
-    console.log('ID TOKEN:', idToken ? 'EXISTE' : 'ES NULL O UNDEFINED');
-    if (!idToken) {
-      Alert.alert('Login', 'No se recibió idToken de Google.');
-      return;
-    }
-    (async () => {
+  const openLogin = async () => {
+    if (Platform.OS !== 'web') {
       try {
+        if (Platform.OS === 'android') {
+          await GoogleSignin.hasPlayServices();
+        }
+        const userInfo: any = await GoogleSignin.signIn();
+        const idToken = userInfo?.data?.idToken;
+        if (!idToken) {
+          Alert.alert('Login', 'No se recibió idToken de Google.');
+          return;
+        }
+
         const supabaseUrl = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
         const supabaseAnonKey = (Constants as any)?.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
         if (!supabaseUrl || !supabaseAnonKey) {
@@ -107,10 +100,8 @@ export default function LoginScreen() {
 
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
-          token: (response as any)?.params?.id_token,
+          token: idToken,
         });
-        console.log('SUPABASE DATA:', JSON.stringify(data));
-        console.log('SUPABASE ERROR:', JSON.stringify(error));
         if (error) {
           Alert.alert('Login', error.message || 'Error al iniciar sesión con Supabase.');
           return;
@@ -127,16 +118,6 @@ export default function LoginScreen() {
       } catch {
         Alert.alert('Login', 'No se pudo completar el login con Google. Probá de nuevo.');
       }
-    })();
-  }, [response, router]);
-
-  const openLogin = () => {
-    if (Platform.OS !== 'web') {
-      if (!request) {
-        Alert.alert('Login', 'Google Login no está listo todavía.');
-        return;
-      }
-      promptAsync({ useProxy: false });
       return;
     }
     const identity = (globalThis as any)?.netlifyIdentity || (window as any)?.netlifyIdentity;
