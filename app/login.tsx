@@ -80,6 +80,9 @@ export default function LoginScreen() {
     if (Platform.OS === 'web') return;
     if (response?.type !== 'success') return;
     const idToken = (response as any)?.params?.id_token;
+    console.log('RESPONSE TYPE:', response?.type);
+    console.log('RESPONSE PARAMS:', JSON.stringify((response as any)?.params));
+    console.log('ID TOKEN:', idToken ? 'EXISTE' : 'ES NULL O UNDEFINED');
     if (!idToken) {
       Alert.alert('Login', 'No se recibió idToken de Google.');
       return;
@@ -106,6 +109,8 @@ export default function LoginScreen() {
           provider: 'google',
           token: (response as any)?.params?.id_token,
         });
+        console.log('SUPABASE DATA:', JSON.stringify(data));
+        console.log('SUPABASE ERROR:', JSON.stringify(error));
         if (error) {
           Alert.alert('Login', error.message || 'Error al iniciar sesión con Supabase.');
           return;
