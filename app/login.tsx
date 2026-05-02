@@ -21,16 +21,17 @@ export default function LoginScreen() {
   const googleAndroidClientId = (Constants as any)?.expoConfig?.extra?.googleAndroidClientId;
   const googleClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId || process.env.GOOGLE_CLIENT_ID;
   const googleExpoClientId = (Constants as any)?.expoConfig?.extra?.googleExpoClientId;
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'lumina' });
+  const redirectUri = AuthSession.makeRedirectUri({
+    native: 'lumina://flowName=GeneralOAuthFlow',
+  });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    redirectUri,
-    clientId: googleClientId,
     androidClientId: googleAndroidClientId,
     webClientId: googleClientId,
-    expoClientId: googleExpoClientId,
+    redirectUri,
     scopes: ['openid', 'profile', 'email'],
     responseType: AuthSession.ResponseType.IdToken,
+    usePKCE: false,
   });
 
   useEffect(() => {
