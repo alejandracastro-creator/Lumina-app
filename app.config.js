@@ -1,6 +1,7 @@
 const appJson = require('./app.json');
 
 module.exports = ({ config } = {}) => {
+  const googleSigninIosUrlScheme = 'com.googleusercontent.apps.989375785294-kt3cquhjrd9vj0ksj96oa69v4ikehj6m';
   const base = config && Object.keys(config).length ? config : appJson.expo || {};
   const existingPlugins = Array.isArray(base.plugins) ? base.plugins : [];
   const nextPlugins = existingPlugins.map((p) => {
@@ -10,7 +11,7 @@ module.exports = ({ config } = {}) => {
         '@react-native-google-signin/google-signin',
         {
           googleServicesFile: './google-services.json',
-          iosUrlScheme: '',
+          iosUrlScheme: googleSigninIosUrlScheme,
         },
       ];
     }
@@ -20,7 +21,7 @@ module.exports = ({ config } = {}) => {
         {
           ...(typeof p[1] === 'object' && p[1] ? p[1] : {}),
           googleServicesFile: './google-services.json',
-          iosUrlScheme: '',
+          iosUrlScheme: googleSigninIosUrlScheme,
         },
       ];
     }
@@ -44,7 +45,7 @@ module.exports = ({ config } = {}) => {
               '@react-native-google-signin/google-signin',
               {
                 googleServicesFile: './google-services.json',
-                iosUrlScheme: '',
+                iosUrlScheme: googleSigninIosUrlScheme,
               },
             ],
           ],
