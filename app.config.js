@@ -5,6 +5,11 @@ module.exports = ({ config } = {}) => {
   return {
     expo: {
       ...base,
+      android: {
+        ...(base.android || {}),
+        versionCode: 3,
+        package: 'com.u.lumina',
+      },
       extra: {
         ...(base.extra || {}),
         vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
