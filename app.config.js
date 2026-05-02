@@ -5,10 +5,10 @@ module.exports = ({ config } = {}) => {
   return {
     expo: {
       ...base,
-      version: '1.0.3',
+      version: '1.0.4',
       android: {
         ...(base.android || {}),
-        versionCode: 4,
+        versionCode: 5,
         package: 'com.u.lumina',
       },
       extra: {
