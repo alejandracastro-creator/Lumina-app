@@ -12,6 +12,28 @@ import { initAnalytics, trackPageView } from '@/lib/analytics';
 import { ensureDailyLocalNotifications, registerServiceWorker, requestPermission, subscribeToPush } from '@/lib/notifications';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
+
+function getLocalIsoDate(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isoToUtcDayNumber(iso: string): number {
+  const [y, m, d] = iso.split('-').map((v) => Number(v));
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+function diffDays(aIso: string, bIso: string): number {
+  return isoToUtcDayNumber(aIso) - isoToUtcDayNumber(bIso);
+}
+
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -75,6 +97,64 @@ export default function RootLayout() {
     } catch {}
     subscribeToPush();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!authReady) return;
+    if (!user) return;
+
+    (async () => {
+      const todayIso = getLocalIsoDate();
+      try {
+        const lastSyncedIso = await AsyncStorage.getItem('lumina_supabase_open_sync_v1');
+        if (lastSyncedIso === todayIso) return;
+      } catch {}
+
+      const supabaseUrl = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
+      const supabaseAnonKey = (Constants as any)?.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) return;
+
+      try {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            storage: AsyncStorage as any,
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false,
+          },
+        });
+
+        const { data } = await supabase.auth.getUser();
+        const sbUser = data?.user;
+        if (!sbUser) return;
+
+        const meta = (sbUser as any)?.user_metadata ?? {};
+        const lastOpenIso = isIsoDate(meta?.last_open_iso) ? meta.last_open_iso : todayIso;
+        const currentNotEntered = Number.isFinite(Number(meta?.dias_no_entraste)) ? Number(meta.dias_no_entraste) : 0;
+        const gap = diffDays(todayIso, lastOpenIso);
+        const addNotEntered = gap > 1 ? gap - 1 : 0;
+
+        let nextRachaActual = Number.isFinite(Number(meta?.racha_actual)) ? Number(meta.racha_actual) : 0;
+        const ritualLast = isIsoDate(meta?.ritual_last_completed_iso) ? meta.ritual_last_completed_iso : null;
+        if (ritualLast && diffDays(todayIso, ritualLast) > 1) {
+          nextRachaActual = 0;
+        }
+
+        const nextMeta = {
+          ...meta,
+          last_open_iso: todayIso,
+          dias_no_entraste: currentNotEntered + addNotEntered,
+          racha_actual: nextRachaActual,
+        };
+
+        await supabase.auth.updateUser({ data: nextMeta });
+
+        try {
+          await AsyncStorage.setItem('lumina_supabase_open_sync_v1', todayIso);
+        } catch {}
+      } catch {}
+    })();
+  }, [authReady, user]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;

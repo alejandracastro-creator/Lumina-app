@@ -16,6 +16,14 @@ const ORACLE_USAGE_KEY = 'lumina_oracle_usage_v1';
 const ORACLE_START_DATE_KEY = 'lumina_oracle_start_date';
 const ORACLE_LIKES_KEY = 'lumina_oracle_likes_v1';
 const PUSH_PROMPT_SNOOZE_UNTIL_KEY = 'lumina_push_prompt_snooze_until_v1';
+const ORACLE_SHARE_LINK = 'https://luminavidaconsciente.netlify.app/';
+
+function getLocalIsoDate(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 const FALLBACK_PALETTES = [
   ['#0F172A', '#7C3AED', '#F472B6'],
@@ -49,9 +57,10 @@ export default function OracleScreen() {
   const [card, setCard] = useState<any>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [usePngIcons, setUsePngIcons] = useState(true);
   const [pushPromptOpen, setPushPromptOpen] = useState(false);
   const [pushPromptBusy, setPushPromptBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMode, setShareMode] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
   const sound = useRef<Audio.Sound | null>(null);
   const isAnimatingRef = useRef(false);
@@ -108,10 +117,11 @@ export default function OracleScreen() {
     try {
       const lastDrawDate = await AsyncStorage.getItem('last_oracle_draw_date');
       const lastCardId = await AsyncStorage.getItem('last_oracle_card_id');
-      const todayISO = new Date().toISOString().split('T')[0];
+      const todayISO = getLocalIsoDate();
+      const todayUtcISO = new Date().toISOString().split('T')[0];
       const todayLegacy = new Date().toDateString();
 
-      const isSameDay = lastDrawDate === todayISO || lastDrawDate === todayLegacy;
+      const isSameDay = lastDrawDate === todayISO || lastDrawDate === todayUtcISO || lastDrawDate === todayLegacy;
       if (isSameDay && lastCardId) {
         const drawnCard = ORACLE_CARDS.find(c => c.id === lastCardId);
         if (drawnCard) {
@@ -208,9 +218,10 @@ export default function OracleScreen() {
         AsyncStorage.getItem('oracle_streak'),
       ]);
 
-      const todayISO = new Date().toISOString().split('T')[0];
+      const todayISO = getLocalIsoDate();
+      const todayUtcISO = new Date().toISOString().split('T')[0];
       const todayLegacy = new Date().toDateString();
-      const isSameDay = lastDrawDate === todayISO || lastDrawDate === todayLegacy;
+      const isSameDay = lastDrawDate === todayISO || lastDrawDate === todayUtcISO || lastDrawDate === todayLegacy;
 
       await AsyncStorage.setItem('last_oracle_draw_date', todayISO);
       await AsyncStorage.setItem('last_oracle_card_id', selected.id);
@@ -283,7 +294,7 @@ export default function OracleScreen() {
 
   const handleToggleLike = useCallback(async () => {
     if (!card) return;
-    const todayISO = new Date().toISOString().split('T')[0];
+    const todayISO = getLocalIsoDate();
     try {
       const raw = await AsyncStorage.getItem(ORACLE_LIKES_KEY);
       const likes = raw ? JSON.parse(raw) : {};
@@ -300,31 +311,99 @@ export default function OracleScreen() {
 
   const handleShare = useCallback(async () => {
     if (!card) return;
+    if (shareBusy) return;
+    setShareBusy(true);
+    setShareMode(true);
+
     const shareUrl =
       Platform.OS === 'web' && typeof window !== 'undefined'
         ? window.location.href
-        : 'https://luminavidaconsciente.netlify.app/';
-    const shareText = `${card.title}\n\n${card.message}\n\n${shareUrl}`;
+        : ORACLE_SHARE_LINK;
 
-    if (Platform.OS !== 'web') {
-      try {
-        await Share.share({ message: shareText });
-      } catch {}
-      return;
-    }
-
-    const nav: any = typeof window !== 'undefined' ? window.navigator : null;
-    if (nav?.share) {
-      try {
-        await nav.share({ title: 'LUMINA — Oráculo', text: `${card.title}\n\n${card.message}`, url: shareUrl });
-        return;
-      } catch {}
-    }
     try {
-      await nav?.clipboard?.writeText?.(shareText);
-      Alert.alert('Compartir', 'Copiado al portapapeles.');
-    } catch {
-      Alert.alert('Compartir', shareText);
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+      if (Platform.OS === 'web') {
+        const el = shareWrapRef.current as any;
+        const nav: any = typeof window !== 'undefined' ? window.navigator : null;
+
+        try {
+          const { default: html2canvas } = await import('html2canvas');
+          const canvas = await html2canvas(el, {
+            backgroundColor: null,
+            scale: 2,
+            useCORS: true,
+          });
+
+          const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+          if (!blob) throw new Error('No se pudo generar la imagen.');
+
+          const file = new File([blob], `lumina-oraculo-${getLocalIsoDate()}.png`, { type: 'image/png' });
+
+          if (nav?.canShare?.({ files: [file] }) && nav?.share) {
+            await nav.share({
+              title: 'LUMINA — Oráculo',
+              text: 'Mi carta del día en LUMINA',
+              url: shareUrl,
+              files: [file],
+            });
+            return;
+          }
+
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `lumina-oraculo-${getLocalIsoDate()}.png`;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          try {
+            await nav?.clipboard?.writeText?.(shareUrl);
+          } catch {}
+          Alert.alert('Compartir', 'Descargué la imagen y copié el link de la app.');
+          return;
+        } catch (e) {
+          try {
+            const shareText = `${card.title}\n\n${card.message}\n\n${shareUrl}`;
+            await nav?.clipboard?.writeText?.(shareText);
+            Alert.alert('Compartir', 'Copiado al portapapeles.');
+          } catch {
+            Alert.alert('Compartir', `${card.title}\n\n${card.message}\n\n${shareUrl}`);
+          }
+          return;
+        }
+      }
+
+      try {
+        const { captureRef } = await import('react-native-view-shot');
+        const uri = await captureRef(shareWrapRef, { format: 'png', quality: 1, result: 'tmpfile' });
+
+        try {
+          const Sharing = await import('expo-sharing');
+          const available = await Sharing.isAvailableAsync();
+          if (available) {
+            await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir Oráculo' });
+            return;
+          }
+        } catch {}
+
+        try {
+          await Share.share({ url: uri, message: shareUrl });
+          return;
+        } catch {}
+
+        Alert.alert('Compartir', shareUrl);
+      } catch {
+        try {
+          await Share.share({ message: shareUrl });
+        } catch {}
+      }
+    } finally {
+      setShareMode(false);
+      setShareBusy(false);
     }
   }, [card]);
 
@@ -338,7 +417,7 @@ export default function OracleScreen() {
         right={16}
       />
       <ScrollView contentContainerStyle={styles.cardWrapper} showsVerticalScrollIndicator={false}>
-        <View ref={shareWrapRef as any} collapsable={false}>
+        <View ref={shareWrapRef as any} collapsable={false} style={styles.shareWrap}>
           <TouchableOpacity activeOpacity={1} onPress={handleFirstTouch} disabled={false}>
             <View style={styles.flipContainer}>
               <Animated.View style={[styles.card, styles.cardBack, frontAnimatedStyle]}>
@@ -378,6 +457,11 @@ export default function OracleScreen() {
             <ScrollView style={styles.messageScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.messageText}>{card.message}</Text>
             </ScrollView>
+          </View>
+        )}
+        {shareMode && isFlipped && card && (
+          <View style={styles.shareFooter}>
+            <Text style={styles.shareFooterText}>{ORACLE_SHARE_LINK}</Text>
           </View>
         )}
         </View>
@@ -449,14 +533,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardWrapper: {
+    flexGrow: 1,
+    width: '100%',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 80,
     paddingBottom: 50,
   },
+  shareWrap: {
+    alignItems: 'center',
+  },
   flipContainer: {
     width: width * 0.75,
     height: width * 1.2,
+    alignSelf: 'center',
   },
   instructions: {
     color: '#FDE68A',
@@ -658,6 +748,22 @@ const styles = StyleSheet.create({
     color: 'rgba(233, 213, 255, 0.85)',
     fontSize: 14,
     lineHeight: 22,
+    textAlign: 'center',
+  },
+  shareFooter: {
+    width: width * 0.8,
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(26, 16, 61, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(196, 181, 253, 0.22)',
+  },
+  shareFooterText: {
+    color: 'rgba(233, 213, 255, 0.85)',
+    fontSize: 12,
+    fontWeight: '800',
     textAlign: 'center',
   },
   actionsRow: {

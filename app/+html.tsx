@@ -23,9 +23,9 @@ export default function RootHtml({ children }: { children: React.ReactNode }) {
         <link rel="apple-touch-icon" href={`/icons/apple-touch-icon.png?v=${ASSET_VERSION}`} sizes="180x180" />
         <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#4C1D95" />
         <meta property="og:title" content="LUMINA" />
-        <meta property="og:image" content="/icons/banner.png" />
+        <meta property="og:image" content="/icons/bannerlumina.png" />
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:image" content="/icons/banner.png" />
+        <meta property="twitter:image" content="/icons/bannerlumina.png" />
         <style
           dangerouslySetInnerHTML={{
             __html: `

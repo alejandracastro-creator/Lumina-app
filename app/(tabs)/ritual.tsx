@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, FlatList, Dimensions, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, FlatList, Dimensions, Alert, Platform } from 'react-native';
 import LuminaBackground from '../../components/LuminaBackground';
 import { RITUAL_DATA, REVIEW_MODE } from '../../constants/Data';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BreathingGuide from '../../components/BreathingGuide';
 import InfoButton from '../../components/InfoButton';
+import Constants from 'expo-constants';
+import { createClient } from '@supabase/supabase-js';
 
 const { width } = Dimensions.get('window');
 
@@ -63,6 +65,36 @@ function isoToUtcDayNumber(iso: string): number {
   return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
 }
 
+function diffDays(aIso: string, bIso: string): number {
+  return isoToUtcDayNumber(aIso) - isoToUtcDayNumber(bIso);
+}
+
+function getYesterdayIso(): string {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - 1);
+  return getLocalIsoDate(d);
+}
+
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function createSupabase() {
+  const supabaseUrl = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
+  const supabaseAnonKey = (Constants as any)?.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: AsyncStorage as any,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 export default function RitualScreen() {
   const [progress, setProgress] = useState<RitualProgress[]>([]);
   const [entries, setEntries] = useState<Record<number, DayEntry>>({});
@@ -113,6 +145,17 @@ export default function RitualScreen() {
         setStartDate(nextStartDate);
         if (!savedStartDate) {
           await AsyncStorage.setItem(START_DATE_KEY, nextStartDate);
+        }
+
+        const [lastDateRaw, currentStreakRaw] = await Promise.all([
+          AsyncStorage.getItem('lumina_ritual_last_date'),
+          AsyncStorage.getItem('lumina_ritual_streak'),
+        ]);
+        const lastDate = isIsoDate(lastDateRaw) ? lastDateRaw : null;
+        const currentStreak = Number.isFinite(Number(currentStreakRaw)) ? Number(currentStreakRaw) : 0;
+        const yesterdayIso = getYesterdayIso();
+        if (lastDate && lastDate !== todayStr && lastDate !== yesterdayIso && currentStreak !== 0) {
+          await AsyncStorage.setItem('lumina_ritual_streak', '0');
         }
       } else {
         setStartDate(null);
@@ -272,14 +315,51 @@ export default function RitualScreen() {
     }
 
     if (!REVIEW_MODE && currentSession === 'night') {
-      const lastDate = await AsyncStorage.getItem('lumina_ritual_last_date');
-      const currentStreak = await AsyncStorage.getItem('lumina_ritual_streak');
-      let newStreak = parseInt(currentStreak || '0');
+      const [lastDateRaw, currentStreakRaw, bestRaw] = await Promise.all([
+        AsyncStorage.getItem('lumina_ritual_last_date'),
+        AsyncStorage.getItem('lumina_ritual_streak'),
+        AsyncStorage.getItem('lumina_ritual_best_streak'),
+      ]);
+
+      const lastDate = isIsoDate(lastDateRaw) ? lastDateRaw : null;
+      const currentStreak = Number.isFinite(Number(currentStreakRaw)) ? Number(currentStreakRaw) : 0;
+      const bestStreak = Number.isFinite(Number(bestRaw)) ? Number(bestRaw) : 0;
+      const yesterdayIso = getYesterdayIso();
+
+      let nextStreak = currentStreak;
       if (lastDate !== today) {
-        newStreak += 1;
-        await AsyncStorage.setItem('lumina_ritual_streak', newStreak.toString());
+        nextStreak = lastDate === yesterdayIso ? currentStreak + 1 : 1;
+        await AsyncStorage.setItem('lumina_ritual_streak', String(nextStreak));
         await AsyncStorage.setItem('lumina_ritual_last_date', today);
-        await AsyncStorage.setItem('oracle_streak', newStreak.toString());
+      }
+
+      const completedTotal = nextProgress.filter((p) => p?.morningCompleted && p?.nightCompleted).length;
+      const nextBest = Math.max(bestStreak, nextStreak);
+      await Promise.all([
+        AsyncStorage.setItem('lumina_ritual_best_streak', String(nextBest)),
+        AsyncStorage.setItem('lumina_ritual_days_completed', String(completedTotal)),
+      ]);
+
+      if (Platform.OS !== 'web') {
+        try {
+          const supabase = createSupabase();
+          if (supabase) {
+            const { data } = await supabase.auth.getUser();
+            const user = data?.user;
+            if (user) {
+              const prev = (user as any)?.user_metadata ?? {};
+              await supabase.auth.updateUser({
+                data: {
+                  ...prev,
+                  mejor_racha: nextBest,
+                  racha_actual: lastDate === today ? prev?.racha_actual ?? nextStreak : nextStreak,
+                  dias_completados: completedTotal,
+                  ritual_last_completed_iso: today,
+                },
+              });
+            }
+          }
+        } catch {}
       }
     }
 

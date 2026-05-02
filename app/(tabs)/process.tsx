@@ -1,10 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import { Platform, StyleSheet, Text, View, ScrollView } from 'react-native';
 import LuminaBackground from '../../components/LuminaBackground';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { SOS_DATA } from '../../constants/Data';
 import InfoButton from '../../components/InfoButton';
+import Constants from 'expo-constants';
+import { createClient } from '@supabase/supabase-js';
 
 type DayEntrySession = {
   answers: string[];
@@ -165,6 +167,20 @@ function isoToUtcDayNumber(iso: string): number {
 
 function diffDays(aIso: string, bIso: string): number {
   return isoToUtcDayNumber(aIso) - isoToUtcDayNumber(bIso);
+}
+
+function createSupabase() {
+  const supabaseUrl = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
+  const supabaseAnonKey = (Constants as any)?.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: AsyncStorage as any,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
 export default function ProcessScreen() {
@@ -369,13 +385,12 @@ export default function ProcessScreen() {
       ).sort();
 
       const doneInWindow = completionDates.filter((d) => d >= windowStartIso && d <= todayIso).length;
-      const without = Math.max(0, windowDays - doneInWindow);
       const completedTotal = completedDays.length;
       const remaining = Math.max(0, 30 - completedTotal);
 
       setRitualBestStreak(best);
       setRitualDaysDone(completedTotal);
-      setRitualDaysWithout(without);
+      setRitualDaysWithout(0);
       setRitualSampleWindowDays(windowDays);
       setRitualRemainingDays(remaining);
 
@@ -401,6 +416,26 @@ export default function ProcessScreen() {
       setOracleDaysDone(oracleDoneInWindow);
       setOracleDaysWithout(oracleWithout);
       setOracleSampleWindowDays(windowDays);
+
+      if (Platform.OS !== 'web') {
+        try {
+          const supabase = createSupabase();
+          if (supabase) {
+            const { data } = await supabase.auth.getUser();
+            const sbUser = data?.user;
+            if (sbUser) {
+              const meta = (sbUser as any)?.user_metadata ?? {};
+              const mejorRacha = Number.isFinite(Number(meta?.mejor_racha)) ? Number(meta.mejor_racha) : null;
+              const diasCompletados = Number.isFinite(Number(meta?.dias_completados)) ? Number(meta.dias_completados) : null;
+              const diasNoEntraste = Number.isFinite(Number(meta?.dias_no_entraste)) ? Number(meta.dias_no_entraste) : null;
+
+              if (mejorRacha !== null) setRitualBestStreak(mejorRacha);
+              if (diasCompletados !== null) setRitualDaysDone(diasCompletados);
+              if (diasNoEntraste !== null) setRitualDaysWithout(diasNoEntraste);
+            }
+          }
+        } catch {}
+      }
     } catch (e) {
       setAvgHours(null);
       setSampleCount(0);
@@ -541,6 +576,10 @@ export default function ProcessScreen() {
             <View style={styles.ritualSummaryBox}>
               <Text style={styles.ritualSummaryNumber}>{Number.isFinite(ritualDaysDone) ? ritualDaysDone : 0}</Text>
               <Text style={styles.ritualSummaryLabel}>días completos</Text>
+            </View>
+            <View style={styles.ritualSummaryBoxNeutral}>
+              <Text style={styles.ritualSummaryNumberNeutral}>{Number.isFinite(ritualDaysWithout) ? ritualDaysWithout : 0}</Text>
+              <Text style={styles.ritualSummaryLabel}>días que no entraste</Text>
             </View>
           </View>
 

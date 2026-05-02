@@ -25,10 +25,11 @@ export default function LoginScreen() {
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     redirectUri,
+    clientId: googleClientId,
     androidClientId: googleAndroidClientId,
     webClientId: googleClientId,
     expoClientId: googleExpoClientId,
-    scopes: ['profile', 'email'],
+    scopes: ['openid', 'profile', 'email'],
     responseType: AuthSession.ResponseType.IdToken,
   });
 
@@ -102,7 +103,7 @@ export default function LoginScreen() {
 
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
-          token: idToken,
+          token: (response as any)?.params?.id_token,
         });
         if (error) {
           Alert.alert('Login', error.message || 'Error al iniciar sesión con Supabase.');
