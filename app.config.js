@@ -3,11 +3,30 @@ const appJson = require('./app.json');
 module.exports = ({ config } = {}) => {
   const base = config && Object.keys(config).length ? config : appJson.expo || {};
   const existingPlugins = Array.isArray(base.plugins) ? base.plugins : [];
-  const hasGoogleSigninPlugin = existingPlugins.some((p) => {
-    if (typeof p === 'string') return p === '@react-native-google-signin/google-signin';
-    if (Array.isArray(p)) return p[0] === '@react-native-google-signin/google-signin';
-    return false;
+  const nextPlugins = existingPlugins.map((p) => {
+    if (typeof p === 'string') {
+      if (p !== '@react-native-google-signin/google-signin') return p;
+      return [
+        '@react-native-google-signin/google-signin',
+        {
+          googleServicesFile: './google-services.json',
+          iosUrlScheme: '',
+        },
+      ];
+    }
+    if (Array.isArray(p) && p[0] === '@react-native-google-signin/google-signin') {
+      return [
+        '@react-native-google-signin/google-signin',
+        {
+          ...(typeof p[1] === 'object' && p[1] ? p[1] : {}),
+          googleServicesFile: './google-services.json',
+          iosUrlScheme: '',
+        },
+      ];
+    }
+    return p;
   });
+  const hasGoogleSigninPlugin = nextPlugins.some((p) => Array.isArray(p) && p[0] === '@react-native-google-signin/google-signin');
   return {
     expo: {
       ...base,
@@ -18,13 +37,14 @@ module.exports = ({ config } = {}) => {
         package: 'com.u.lumina',
       },
       plugins: hasGoogleSigninPlugin
-        ? existingPlugins
+        ? nextPlugins
         : [
-            ...existingPlugins,
+            ...nextPlugins,
             [
               '@react-native-google-signin/google-signin',
               {
                 googleServicesFile: './google-services.json',
+                iosUrlScheme: '',
               },
             ],
           ],
