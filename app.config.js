@@ -2,6 +2,12 @@ const appJson = require('./app.json');
 
 module.exports = ({ config } = {}) => {
   const base = config && Object.keys(config).length ? config : appJson.expo || {};
+  const existingPlugins = Array.isArray(base.plugins) ? base.plugins : [];
+  const hasGoogleSigninPlugin = existingPlugins.some((p) => {
+    if (typeof p === 'string') return p === '@react-native-google-signin/google-signin';
+    if (Array.isArray(p)) return p[0] === '@react-native-google-signin/google-signin';
+    return false;
+  });
   return {
     expo: {
       ...base,
@@ -11,6 +17,17 @@ module.exports = ({ config } = {}) => {
         versionCode: 5,
         package: 'com.u.lumina',
       },
+      plugins: hasGoogleSigninPlugin
+        ? existingPlugins
+        : [
+            ...existingPlugins,
+            [
+              '@react-native-google-signin/google-signin',
+              {
+                googleServicesFile: './google-services.json',
+              },
+            ],
+          ],
       extra: {
         ...(base.extra || {}),
         vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
