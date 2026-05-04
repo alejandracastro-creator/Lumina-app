@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.u.lumina",
-      "versionCode": 8,
+      "versionCode": 9,
       "notification": {
         "icon": "./public/icons/Icon.png",
         "color": "#0B0720"

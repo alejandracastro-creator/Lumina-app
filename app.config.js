@@ -34,7 +34,7 @@ module.exports = ({ config } = {}) => {
       version: '1.0.6',
       android: {
         ...(base.android || {}),
-        versionCode: 7,
+        versionCode: 9,
         package: 'com.u.lumina',
       },
       plugins: hasGoogleSigninPlugin
