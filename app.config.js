@@ -31,10 +31,10 @@ module.exports = ({ config } = {}) => {
   return {
     expo: {
       ...base,
-      version: '1.0.6',
+      version: '1.0.9',
       android: {
         ...(base.android || {}),
-        versionCode: 9,
+        versionCode: 10,
         package: 'com.u.lumina',
       },
       plugins: hasGoogleSigninPlugin
