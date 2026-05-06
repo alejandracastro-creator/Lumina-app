@@ -80,7 +80,7 @@ export async function ensurePushSubscription(): Promise<boolean> {
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as any,
       });
     }
 
@@ -136,6 +136,8 @@ export async function ensureDailyLocalNotifications(): Promise<boolean> {
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
       }),
     });
 
@@ -170,12 +172,12 @@ export async function ensureDailyLocalNotifications(): Promise<boolean> {
 
     await Notifications.scheduleNotificationAsync({
       content: { title: 'LUMINA', body: morningBody, data: { url: '/oracle' } },
-      trigger: { hour: 9, minute: 0, repeats: true },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, hour: 9, minute: 0, repeats: true },
     });
 
     await Notifications.scheduleNotificationAsync({
       content: { title: 'LUMINA', body: nightBody, data: { url: '/ritual' } },
-      trigger: { hour: 20, minute: 0, repeats: true },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, hour: 20, minute: 0, repeats: true },
     });
 
     return true;

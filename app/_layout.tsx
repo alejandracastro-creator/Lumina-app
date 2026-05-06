@@ -171,7 +171,7 @@ export default function RootLayout() {
         const Notifications = await import('expo-notifications');
         sub = Notifications.addNotificationResponseReceivedListener((response: any) => {
           const url = response?.notification?.request?.content?.data?.url;
-          if (typeof url === 'string' && url.length) router.push(url);
+          if (typeof url === 'string' && url.length) router.push(url as any);
         });
       } catch {}
     })();

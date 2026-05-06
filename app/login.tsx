@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as Notifications from 'expo-notifications';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -14,18 +15,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const autoOpenedRef = React.useRef(false);
 
-  const googleAndroidClientId = (Constants as any)?.expoConfig?.extra?.googleAndroidClientId;
   const googleClientId = (Constants as any)?.expoConfig?.extra?.googleWebClientId || process.env.GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
     GoogleSignin.configure({
       webClientId: googleClientId,
-      androidClientId: googleAndroidClientId,
       offlineAccess: false,
       scopes: ['profile', 'email'],
     });
-  }, [googleAndroidClientId, googleClientId]);
+  }, [googleClientId]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -76,16 +75,23 @@ export default function LoginScreen() {
           await GoogleSignin.hasPlayServices();
         }
         const userInfo: any = await GoogleSignin.signIn();
-        const idToken = userInfo?.data?.idToken;
+        const idToken = userInfo?.data?.idToken || userInfo?.idToken;
         if (!idToken) {
-          Alert.alert('Login', 'No se recibió idToken de Google.');
+          Alert.alert('Login', 'No se recibió el token de Google.');
           return;
         }
 
-        const supabaseUrl = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
+        const supabaseUrlRaw = (Constants as any)?.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
         const supabaseAnonKey = (Constants as any)?.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+        const supabaseUrl = typeof supabaseUrlRaw === 'string' ? supabaseUrlRaw.trim() : supabaseUrlRaw;
+        console.log('SUPABASE URL:', supabaseUrl);
+        console.log('SUPABASE KEY:', supabaseAnonKey ? 'EXISTE' : 'ES NULL');
         if (!supabaseUrl || !supabaseAnonKey) {
           Alert.alert('Login', 'Faltan SUPABASE_URL o SUPABASE_ANON_KEY.');
+          return;
+        }
+        if (typeof supabaseUrl !== 'string' || !/^https:\/\/.+/i.test(supabaseUrl)) {
+          Alert.alert('Login', 'SUPABASE_URL inválida.');
           return;
         }
 
@@ -106,6 +112,27 @@ export default function LoginScreen() {
           Alert.alert('Login', error.message || 'Error al iniciar sesión con Supabase.');
           return;
         }
+
+        try {
+          const projectId =
+            (Constants as any)?.expoConfig?.extra?.eas?.projectId ??
+            (Constants as any)?.easConfig?.projectId ??
+            (Constants as any)?.expoConfig?.extra?.eas?.projectId;
+
+          const perms = await Notifications.getPermissionsAsync();
+          const permStatus = perms?.status === 'granted' ? 'granted' : (await Notifications.requestPermissionsAsync())?.status;
+          if (permStatus === 'granted' && projectId && data?.user?.id) {
+            const expoToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+            if (expoToken) {
+              await supabase
+                .from('phone_notifications')
+                .upsert(
+                  { user_id: data.user.id, expo_push_token: expoToken, platform: Platform.OS },
+                  { onConflict: 'expo_push_token' }
+                );
+            }
+          }
+        } catch {}
 
         const userObj = {
           id: data?.user?.id ?? null,
