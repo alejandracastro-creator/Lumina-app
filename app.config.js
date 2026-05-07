@@ -50,7 +50,6 @@ module.exports = ({ config } = {}) => {
         ],
     extra: {
       ...(incoming.extra || {}),
-      eas: { ...((incoming.extra && incoming.extra.eas) || {}), projectId: 'e11982b4-a0c0-4318-9bc7-8cfb1c52b8b9' },
       vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
       googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
       googleWebClientId: process.env.GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
