@@ -4,6 +4,10 @@
     "slug": "LUMINA",
     "version": "1.1.2",
     "icon": "./public/icons/Icon2.png",
+    "notification": {
+      "icon": "./public/icons/Icon.png",
+      "color": "#0B0720"
+    },
     "splash": {
       "image": "./public/icons/Icon.png",
       "resizeMode": "contain",
@@ -18,10 +22,6 @@
     "android": {
       "package": "com.u.lumina",
       "versionCode": 13,
-      "notification": {
-        "icon": "./public/icons/Icon.png",
-        "color": "#0B0720"
-      },
       "adaptiveIcon": {
         "foregroundImage": "./public/icons/Icon2.png",
         "backgroundColor": "#0B0720"

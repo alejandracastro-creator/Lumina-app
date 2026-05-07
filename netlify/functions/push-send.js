@@ -87,10 +87,13 @@ exports.handler = async (event) => {
 
   const endpointFilter = body?.endpoint || null;
 
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://pinicckryrstfhedtfbta.supabase.co';
+  const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'missing_supabase_env' }) };
+  }
+  if (!/^https?:\/\//i.test(String(supabaseUrl))) {
+    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'invalid_supabase_url' }) };
   }
 
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;

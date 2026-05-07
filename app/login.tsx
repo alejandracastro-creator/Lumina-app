@@ -116,8 +116,7 @@ export default function LoginScreen() {
         try {
           const projectId =
             (Constants as any)?.expoConfig?.extra?.eas?.projectId ??
-            (Constants as any)?.easConfig?.projectId ??
-            (Constants as any)?.expoConfig?.extra?.eas?.projectId;
+            (Constants as any)?.easConfig?.projectId;
 
           const perms = await Notifications.getPermissionsAsync();
           const permStatus = perms?.status === 'granted' ? 'granted' : (await Notifications.requestPermissionsAsync())?.status;
@@ -132,7 +131,9 @@ export default function LoginScreen() {
                 );
             }
           }
-        } catch {}
+        } catch (err) {
+          console.error('Error guardando push token:', err);
+        }
 
         const userObj = {
           id: data?.user?.id ?? null,
