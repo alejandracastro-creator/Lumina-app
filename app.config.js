@@ -31,10 +31,10 @@ module.exports = ({ config } = {}) => {
   return {
     expo: {
       ...base,
-      version: '1.1.1',
+      version: '1.1.2',
       android: {
         ...(base.android || {}),
-        versionCode: 12,
+        versionCode: 13,
         package: 'com.u.lumina',
       },
       plugins: hasGoogleSigninPlugin
@@ -51,6 +51,7 @@ module.exports = ({ config } = {}) => {
           ],
       extra: {
         ...(base.extra || {}),
+        eas: { projectId: 'e11982b4-a0c0-4318-9bc7-8cfb1c52b8b9' },
         vapidPublicKey: process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY,
         googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
         googleWebClientId: process.env.GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
