@@ -2,7 +2,7 @@
   "expo": {
     "name": "LUMINA",
     "slug": "LUMINA",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "icon": "./public/icons/Icon2.png",
     "notification": {
       "icon": "./public/icons/Icon.png",
@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.u.lumina",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./public/icons/Icon2.png",
         "backgroundColor": "#0B0720"
@@ -43,7 +43,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e11902b4-a0c0-4318-9bc7-8cfb1c52b8b9"
+        "projectId": "e11982b4-a0c0-4318-9bc7-8cfb1c52b8b9"
       }
     }
   }
