@@ -25,21 +25,23 @@ module.exports = ({ config } = {}) => {
     }
     return p;
   });
-  const hasGoogleSigninPlugin = nextPlugins.some((p) => Array.isArray(p) && p[0] === '@react-native-google-signin/google-signin');
+  const hasFirebasePlugin = nextPlugins.some((p) => p === '@react-native-firebase/app' || (Array.isArray(p) && p[0] === '@react-native-firebase/app'));
+  const nextPluginsWithFirebase = hasFirebasePlugin ? nextPlugins : [...nextPlugins, '@react-native-firebase/app'];
+  const hasGoogleSigninPlugin = nextPluginsWithFirebase.some((p) => Array.isArray(p) && p[0] === '@react-native-google-signin/google-signin');
   return {
     ...incoming,
-    version: '1.1.3',
+    version: '1.1.4',
     ios: { ...(incoming.ios || {}) },
     android: {
       ...(incoming.android || {}),
-      versionCode: 14,
+      versionCode: 15,
       package: 'com.u.lumina',
     },
     web: { ...(incoming.web || {}) },
     plugins: hasGoogleSigninPlugin
-      ? nextPlugins
+      ? nextPluginsWithFirebase
       : [
-          ...nextPlugins,
+          ...nextPluginsWithFirebase,
           [
             '@react-native-google-signin/google-signin',
             {

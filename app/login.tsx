@@ -142,7 +142,9 @@ export default function LoginScreen() {
           provider: 'google',
         };
         await AsyncStorage.setItem('lumina_native_user_v1', JSON.stringify(userObj));
-        router.replace('/(tabs)');
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 500);
       } catch {
         Alert.alert('Login', 'No se pudo completar el login con Google. Probá de nuevo.');
       }
