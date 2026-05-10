@@ -7,14 +7,6 @@ function buildHeaders() {
   };
 }
 
-async function loadWebPush() {
-  try {
-    return require('web-push');
-  } catch {
-    return await import('web-push');
-  }
-}
-
 async function loadSupabase() {
   try {
     return require('@supabase/supabase-js');
@@ -23,33 +15,12 @@ async function loadSupabase() {
   }
 }
 
-function isGone(err) {
-  const code = err?.statusCode ?? err?.status ?? err?.code;
-  return code === 404 || code === 410;
-}
-
-function formatPushError(err, endpoint) {
-  return {
-    endpoint,
-    statusCode: err?.statusCode ?? err?.status ?? null,
-    headers: err?.headers ?? null,
-    body: err?.body ?? null,
-    message: err?.message || String(err),
-  };
-}
-
-async function mapLimit(items, limit, fn) {
-  const results = [];
-  let idx = 0;
-  const workers = new Array(Math.max(1, limit)).fill(0).map(async () => {
-    while (idx < items.length) {
-      const current = idx;
-      idx += 1;
-      results[current] = await fn(items[current], current);
-    }
-  });
-  await Promise.all(workers);
-  return results;
+async function loadExpoServerSdk() {
+  try {
+    return require('expo-server-sdk');
+  } catch {
+    return await import('expo-server-sdk');
+  }
 }
 
 exports.handler = async (event) => {
@@ -85,7 +56,7 @@ exports.handler = async (event) => {
     url: body?.url || '/oracle',
   };
 
-  const endpointFilter = body?.endpoint || null;
+  const tokenFilter = body?.expoPushToken || body?.token || null;
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -96,25 +67,16 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'invalid_supabase_url' }) };
   }
 
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!vapidPublicKey || !vapidPrivateKey) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: 'missing_vapid_env' }) };
-  }
-
-  const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:hello@lumina.app';
   try {
-    const webPush = await loadWebPush();
     const { createClient } = await loadSupabase();
-
-    webPush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    const { Expo } = await loadExpoServerSdk();
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
 
-    let query = supabase.from('push_subscriptions').select('id, subscription');
-    if (endpointFilter) query = query.eq('subscription->>endpoint', endpointFilter);
+    let query = supabase.from('phone_notifications').select('id, expo_push_token, user_id');
+    if (tokenFilter) query = query.eq('expo_push_token', tokenFilter);
 
     const { data: rows, error: selErr } = await query;
     if (selErr) {
@@ -125,42 +87,79 @@ exports.handler = async (event) => {
       };
     }
 
-    const subs = (rows || []).filter((r) => !!r?.subscription?.endpoint);
-    let sent = 0;
-    let removed = 0;
-    let failed = 0;
-    const failures = [];
+    const allTokens = (rows || [])
+      .map((r) => (typeof r?.expo_push_token === 'string' ? r.expo_push_token.trim() : null))
+      .filter(Boolean);
+    const expoTokens = allTokens.filter((t) => Expo.isExpoPushToken(t));
 
-    const bodyJson = JSON.stringify(payload);
+    const expo = new Expo(process.env.EXPO_ACCESS_TOKEN ? { accessToken: process.env.EXPO_ACCESS_TOKEN } : {});
+    const messages = expoTokens.map((t) => ({
+      to: t,
+      title: payload.title,
+      body: payload.body,
+      data: { url: payload.url },
+      sound: 'default',
+      channelId: 'default',
+    }));
 
-    await mapLimit(subs, 10, async (row) => {
-      try {
-        await webPush.sendNotification(row.subscription, bodyJson, {
-          TTL: 86400,
-          urgency: 'high',
-        });
-        sent += 1;
-      } catch (err) {
-        const detail = formatPushError(err, row?.subscription?.endpoint || null);
-        // Netlify logs: muestra causa exacta devuelta por FCM/APNs/WebPush gateway.
-        console.error('push-send delivery failed', detail);
-        if (failures.length < 25) failures.push(detail);
-        if (isGone(err)) {
-          removed += 1;
+    const chunks = expo.chunkPushNotifications(messages);
+    const tickets = [];
+    const receiptIdToToken = {};
+    const deletedTokens = [];
+    for (const chunk of chunks) {
+      const chunkTickets = await expo.sendPushNotificationsAsync(chunk);
+      for (let i = 0; i < chunkTickets.length; i += 1) {
+        const ticket = chunkTickets[i];
+        const token = chunk[i]?.to;
+        if (ticket?.status === 'ok' && ticket?.id && token) {
+          receiptIdToToken[ticket.id] = token;
+        }
+        if (ticket?.status === 'error' && token && ticket?.details?.error === 'DeviceNotRegistered') {
           try {
-            await supabase.from('push_subscriptions').delete().eq('id', row.id);
+            await supabase.from('phone_notifications').delete().eq('expo_push_token', token);
+            deletedTokens.push(token);
           } catch {}
-        } else {
-          failed += 1;
         }
       }
-    });
+      tickets.push(...chunkTickets);
+    }
 
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify({ ok: true, total: subs.length, sent, removed, failed, failures }),
-  };
+    const receiptIds = tickets
+      .map((t) => (t && t.status === 'ok' && t.id ? t.id : null))
+      .filter(Boolean);
+
+    if (receiptIds.length) {
+      const receiptChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+      for (const chunk of receiptChunks) {
+        const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+        const failedReceiptIds = Object.keys(receipts || {}).filter((id) => receipts[id]?.status === 'error');
+        if (!failedReceiptIds.length) continue;
+        for (const id of failedReceiptIds) {
+          const errDetails = receipts[id]?.details;
+          const errorCode = errDetails?.error;
+          const token = receiptIdToToken[id];
+          if (errorCode === 'DeviceNotRegistered' && token) {
+            try {
+              await supabase.from('phone_notifications').delete().eq('expo_push_token', token);
+              deletedTokens.push(token);
+            } catch {}
+          }
+        }
+      }
+    }
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        ok: true,
+        total: rows?.length ?? 0,
+        tokens: allTokens.length,
+        expoTokens: expoTokens.length,
+        tickets: tickets.length,
+        deletedTokens,
+      }),
+    };
   } catch (err) {
     return {
       statusCode: 500,
