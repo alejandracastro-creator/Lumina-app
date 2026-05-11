@@ -31,8 +31,14 @@ export const handler = async (event: NetlifyEvent) => {
   const minute = now.getUTCMinutes();
   const day = utcDayNumber(now);
 
-  const isMorning = hour === 12 && minute === 30; // 09:30 Argentina (UTC-3)
-  const isNight = hour === 23 && minute === 0; // 20:00 Argentina (UTC-3)
+  console.log('[schedule-notification] utc time', {
+    iso: now.toISOString(),
+    hour,
+    minute,
+  });
+
+  const isMorning = hour === 15 && minute >= 30 && minute < 45;
+  const isNight = hour === 23 && minute >= 0 && minute < 15;
 
   let mode: 'morning' | 'night' | null = null;
   if (isMorning) mode = 'morning';
