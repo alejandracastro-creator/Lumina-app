@@ -28,7 +28,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="oracle"
         options={{
-          title: 'Oráculo',
+          title: 'Oráculos',
           tabBarIcon: ({ focused }) => (
             <Ionicons name="sparkles" size={28} color={focused ? '#FDE68A' : '#C4B5FD'} />
           ),
@@ -37,17 +37,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="sos"
         options={{
-          title: 'SOS',
+          title: 'Más',
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="alert-circle" size={28} color={focused ? '#EF4444' : '#FCA5A5'} />
+            <Ionicons name="menu" size={28} color={focused ? '#A78BFA' : '#C4B5FD'} />
           ),
-          tabBarActiveTintColor: '#EF4444',
         }}
       />
       <Tabs.Screen
         name="ritual"
         options={{
-          title: 'Ritual',
+          title: 'Rituales',
           tabBarIcon: ({ focused }) => (
             <Ionicons name="journal" size={28} color={focused ? '#F472B6' : '#C4B5FD'} />
           ),
@@ -56,7 +55,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="process"
         options={{
-          title: 'Proceso',
+          title: 'Procesos',
           tabBarIcon: ({ focused }) => (
             <Ionicons name="flower" size={28} color={focused ? '#A7F3D0' : '#C4B5FD'} />
           ),
